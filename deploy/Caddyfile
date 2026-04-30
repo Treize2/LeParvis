@@ -1,0 +1,30 @@
+# Standalone Caddyfile — only used when running `docker compose --profile edge up -d`
+# (i.e. when taskrabbit's Caddy isn't fronting LeParvis).
+#
+# Caddy auto-provisions Let's Encrypt certificates for {$DOMAIN_NAME}.
+
+{
+    email {$ACME_EMAIL}
+}
+
+{$DOMAIN_NAME} {
+    encode zstd gzip
+
+    handle /api/* {
+        reverse_proxy api:8000
+    }
+    handle /health {
+        reverse_proxy api:8000
+    }
+    handle /docs* /redoc* /openapi.json {
+        reverse_proxy api:8000
+    }
+    handle {
+        reverse_proxy web:80
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}

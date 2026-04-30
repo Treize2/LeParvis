@@ -1,6 +1,6 @@
 from .base import ScrapedCelebration, ScrapedChurch, Scraper
-from .registry import get_scraper_for_url
 from .pipeline import IngestionPipeline
+from .registry import get_scraper_for_url
 
 __all__ = [
     "ScrapedChurch",

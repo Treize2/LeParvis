@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..database import get_db
 from ..models import Celebration, Church
-from ..schemas import ChurchOut, CelebrationOut, SearchResponse, SearchResultItem
+from ..schemas import CelebrationOut, ChurchOut, SearchResponse, SearchResultItem
 from ..services.geo import bounding_box, haversine_km
 
 router = APIRouter(prefix="/api/search", tags=["search"])

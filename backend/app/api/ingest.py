@@ -54,7 +54,7 @@ async def ingest_url(request: IngestUrlRequest, db: Session = Depends(get_db)):
         fetched = len(results)
         pipeline.run(results)
     except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc))
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         pipeline.errors.append(str(exc))
     return IngestReport(

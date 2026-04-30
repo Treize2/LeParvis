@@ -1,137 +1,235 @@
 name: deploy
 
+# Triggered after the `ci` workflow finishes successfully on `main`.
+# Gates every deploy on lint + tests + audit + secret scan, all green on
+# the exact same SHA we're about to ship.
+#
+# Required repository secrets:
+#
+#   SCW_SECRET_KEY        Scaleway secret key with `ContainerRegistryFullAccess`
+#                         (used as docker-login password against rg.fr-par.scw.cloud).
+#   SCALEWAY_HOST         Public IP or DNS of the deployment instance.
+#   SCALEWAY_USER         SSH user on that instance (e.g. `campus`).
+#   SCALEWAY_SSH_KEY      Private SSH key (PEM, single secret) authorized for that user.
+#   SCALEWAY_SSH_PORT     Optional. Defaults to 22.
+#   SCALEWAY_HOST_KEY     `ssh-keyscan` output for the instance, captured once locally.
+#                         Pinning the host key prevents MITM in CI.
+#
+# Required repository variables:
+#
+#   SCW_NAMESPACE         Scaleway Container Registry namespace (e.g. `treize`).
+#                         Defaults to `treize` if unset to mirror the existing
+#                         taskrabbit setup on the same instance.
+#
+# Required on the instance, one-time setup (see deploy/INSTANCE_BOOTSTRAP.md):
+#
+#   1. Docker + docker compose v2 installed
+#   2. SCALEWAY_USER added to the `docker` group
+#   3. The repo cloned at /home/<SCALEWAY_USER>/LeParvis
+#   4. /home/<SCALEWAY_USER>/LeParvis/.env populated from deploy/env.example
+#      (DOMAIN_NAME=leparvis.dauchez.me, SCW_NAMESPACE, etc.)
+#   5. The shared external Docker network already exists
+#      (created once by taskrabbit; we just join it):
+#        docker network ls | grep web   # if missing: docker network create web
+#   6. Taskrabbit's Caddy must contain the leparvis.dauchez.me vhost
+#      from deploy/Caddyfile.snippet. See INSTANCE_BOOTSTRAP.md.
+
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
+# Never run two deploys for the same branch in parallel. Don't cancel
+# in-flight deploys though — interrupting `docker compose up` is worse
+# than waiting.
 concurrency:
-  group: deploy-prod
+  group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 env:
-  REGISTRY: ghcr.io
-  IMAGE_API: ${{ github.repository }}/api
-  IMAGE_WEB: ${{ github.repository }}/web
+  REGISTRY: rg.fr-par.scw.cloud
+  NAMESPACE: ${{ vars.SCW_NAMESPACE || 'treize' }}
+  API_IMAGE_NAME: leparvis-api
+  WEB_IMAGE_NAME: leparvis-web
 
 jobs:
   build-and-push:
-    name: Build & push images
+    name: Build & push image to SCR
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    timeout-minutes: 20
+    # workflow_run fires for both success and failure; gate explicitly.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     outputs:
-      api_image: ${{ steps.meta_api.outputs.tags }}
-      web_image: ${{ steps.meta_web.outputs.tags }}
-      sha: ${{ github.sha }}
-    steps:
-      - uses: actions/checkout@v4
+      api_image_sha: ${{ steps.tag.outputs.api_image_sha }}
+      web_image_sha: ${{ steps.tag.outputs.web_image_sha }}
+      sha_short: ${{ steps.tag.outputs.sha_short }}
 
-      - name: Set up Buildx
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # workflow_run runs in the context of the default branch by
+          # default; pin to the exact commit that passed CI.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Compute image tags
+        id: tag
+        run: |
+          short=$(git rev-parse --short HEAD)
+          echo "sha_short=$short" >> "$GITHUB_OUTPUT"
+          echo "api_image_sha=${REGISTRY}/${NAMESPACE}/${API_IMAGE_NAME}:sha-${short}" >> "$GITHUB_OUTPUT"
+          echo "api_image_latest=${REGISTRY}/${NAMESPACE}/${API_IMAGE_NAME}:latest" >> "$GITHUB_OUTPUT"
+          echo "web_image_sha=${REGISTRY}/${NAMESPACE}/${WEB_IMAGE_NAME}:sha-${short}" >> "$GITHUB_OUTPUT"
+          echo "web_image_latest=${REGISTRY}/${NAMESPACE}/${WEB_IMAGE_NAME}:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GHCR
+      - name: Log in to Scaleway Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: nologin
+          password: ${{ secrets.SCW_SECRET_KEY }}
 
-      - name: Compute API tags
-        id: meta_api
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_API }}
-          tags: |
-            type=sha,format=long
-            type=raw,value=latest
-
-      - name: Compute Web tags
-        id: meta_web
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_WEB }}
-          tags: |
-            type=sha,format=long
-            type=raw,value=latest
-
-      - name: Build & push API
+      - name: Build and push API image
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           push: true
-          tags: ${{ steps.meta_api.outputs.tags }}
-          labels: ${{ steps.meta_api.outputs.labels }}
+          tags: |
+            ${{ steps.tag.outputs.api_image_sha }}
+            ${{ steps.tag.outputs.api_image_latest }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
 
-      - name: Build & push Web
+      - name: Build and push Web image
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
           push: true
-          tags: ${{ steps.meta_web.outputs.tags }}
-          labels: ${{ steps.meta_web.outputs.labels }}
+          tags: |
+            ${{ steps.tag.outputs.web_image_sha }}
+            ${{ steps.tag.outputs.web_image_latest }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
 
   deploy:
-    name: Deploy on Scaleway VM
+    name: Deploy on Scaleway instance
     runs-on: ubuntu-latest
     needs: build-and-push
-    environment:
-      name: production
-      url: https://${{ vars.DOMAIN_NAME }}
+    timeout-minutes: 10
+
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Copy infra files to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          source: "infra/docker-compose.prod.yml,infra/Caddyfile,infra/deploy.sh"
-          target: "/opt/leparvis"
-          strip_components: 1
-          overwrite: true
-
-      - name: Run remote deploy
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          envs: GITHUB_SHA,GHCR_USER,GHCR_TOKEN,DOMAIN_NAME,ACME_EMAIL
-          script_stop: true
-          script: |
-            set -euo pipefail
-            export IMAGE_TAG="sha-${GITHUB_SHA}"
-            export IMAGE_API="ghcr.io/${{ github.repository }}/api"
-            export IMAGE_WEB="ghcr.io/${{ github.repository }}/web"
-            cd /opt/leparvis
-            chmod +x deploy.sh
-            ./deploy.sh
+      - name: Set up SSH
         env:
-          GITHUB_SHA: ${{ github.sha }}
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN || secrets.GITHUB_TOKEN }}
-          DOMAIN_NAME: ${{ vars.DOMAIN_NAME }}
-          ACME_EMAIL: ${{ vars.ACME_EMAIL }}
-
-      - name: Smoke check (public health endpoint)
-        if: ${{ vars.DOMAIN_NAME != '' }}
+          SSH_KEY: ${{ secrets.SCALEWAY_SSH_KEY }}
+          HOST_KEY: ${{ secrets.SCALEWAY_HOST_KEY }}
         run: |
-          for i in 1 2 3 4 5; do
-            if curl -fsS "https://${{ vars.DOMAIN_NAME }}/health"; then
-              echo "Health OK"
-              exit 0
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Pinned host key — never `StrictHostKeyChecking=no` in CI.
+          printf '%s\n' "$HOST_KEY" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Pull images and restart services on the instance
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          API_IMAGE_REF: ${{ needs.build-and-push.outputs.api_image_sha }}
+          WEB_IMAGE_REF: ${{ needs.build-and-push.outputs.web_image_sha }}
+          SSH_USER: ${{ secrets.SCALEWAY_USER }}
+          SSH_HOST: ${{ secrets.SCALEWAY_HOST }}
+          SSH_PORT: ${{ secrets.SCALEWAY_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_deploy \
+              -p "${SSH_PORT:-22}" \
+              -o IdentitiesOnly=yes \
+              -o StrictHostKeyChecking=yes \
+              -o BatchMode=yes \
+              -o ConnectTimeout=10 \
+              "${SSH_USER}@${SSH_HOST}" \
+              REGISTRY="${REGISTRY}" \
+              SCW_SECRET_KEY="${SCW_SECRET_KEY}" \
+              API_IMAGE="${API_IMAGE_REF}" \
+              WEB_IMAGE="${WEB_IMAGE_REF}" \
+              bash -se <<'REMOTE'
+          set -euo pipefail
+
+          REPO_DIR="$HOME/LeParvis"
+          if [[ ! -d "$REPO_DIR" ]]; then
+            echo "✗ $REPO_DIR not found on instance — clone it first." >&2
+            exit 1
+          fi
+          cd "$REPO_DIR"
+
+          if [[ ! -f .env ]]; then
+            echo "✗ $REPO_DIR/.env missing — copy from deploy/env.example." >&2
+            exit 1
+          fi
+
+          # Pull the latest compose file from main so service definitions
+          # ship together with the new images.
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+
+          echo "$SCW_SECRET_KEY" | docker login "$REGISTRY" -u nologin --password-stdin
+
+          export API_IMAGE
+          export WEB_IMAGE
+          export API_PULL_POLICY=always
+          export WEB_PULL_POLICY=always
+
+          docker compose pull api web
+          docker compose up -d api web
+
+          # Wait for the API /health endpoint via the internal docker network.
+          for attempt in $(seq 1 30); do
+            if docker compose exec -T api \
+                python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=2).status==200 else 1)" \
+                > /dev/null 2>&1; then
+              echo "✓ API healthy after ${attempt} attempt(s) on $API_IMAGE"
+              break
             fi
-            echo "Attempt $i failed, retrying in 5s..."
-            sleep 5
+            sleep 2
+            if [[ $attempt -eq 30 ]]; then
+              echo "✗ API did not become healthy within 60s after deploy of $API_IMAGE" >&2
+              docker compose logs --tail 100 api >&2
+              docker logout "$REGISTRY" || true
+              exit 1
+            fi
           done
-          exit 1
+
+          # Wait for Web nginx to respond (internal network only).
+          for attempt in $(seq 1 15); do
+            if docker compose exec -T web wget -qO- http://127.0.0.1/ > /dev/null 2>&1; then
+              echo "✓ Web healthy after ${attempt} attempt(s) on $WEB_IMAGE"
+              break
+            fi
+            sleep 2
+            if [[ $attempt -eq 15 ]]; then
+              echo "✗ Web did not become healthy within 30s after deploy of $WEB_IMAGE" >&2
+              docker compose logs --tail 50 web >&2
+              docker logout "$REGISTRY" || true
+              exit 1
+            fi
+          done
+
+          docker image prune -f
+          docker logout "$REGISTRY" || true
+          echo "✓ Deploy complete: API + Web (leparvis.dauchez.me)"
+          REMOTE

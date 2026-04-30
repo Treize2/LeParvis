@@ -1,0 +1,30 @@
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = [".scraper_cache", "tests/fixtures"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # bugbear
+    "UP",   # pyupgrade
+    "W",    # pycodestyle warnings
+]
+ignore = [
+    "E501",  # line length is enforced softly via formatter, not lint
+    "B008",  # FastAPI uses Depends() in defaults — idiomatic
+]
+
+[tool.ruff.lint.per-file-ignores]
+"app/scrapers/base.py" = ["B904"]   # nested HTTP error wrapping
+"tests/*" = ["E402"]                # tests set env before imports
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers --disable-warnings"
+filterwarnings = [
+    "ignore::DeprecationWarning:ics.*",
+    "ignore::FutureWarning:ics.*",
+]

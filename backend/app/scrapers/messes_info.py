@@ -12,14 +12,13 @@ surfaced through the IngestionPipeline `errors` collection.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime, time
-from typing import Iterable
 
 import httpx
 
 from ..config import settings
-from .base import ScrapedCelebration, ScrapedChurch, ScrapeResult, Scraper
-
+from .base import ScrapedCelebration, ScrapedChurch, Scraper, ScrapeResult
 
 CHURCH_TYPE_MAPPING = {
     "PAROISSE": "parish",
@@ -76,7 +75,7 @@ class MessesInfoScraper(Scraper):
         for record in records:
             try:
                 results.append(self._parse_record(record))
-            except Exception as exc:  # noqa: BLE001
+            except Exception:  # noqa: BLE001
                 # Skip the record but keep going; the pipeline will log it.
                 results.append(
                     ScrapeResult(

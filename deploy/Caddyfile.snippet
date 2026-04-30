@@ -1,0 +1,39 @@
+# Add this block to taskrabbit's Caddyfile (or any other vhost file the
+# instance's Caddy reads). It routes leparvis.dauchez.me to the LeParvis
+# containers on the shared `web` Docker network.
+#
+# Once added, reload Caddy:
+#   docker compose exec edge caddy reload --config /etc/caddy/Caddyfile
+#
+# (The exact service name / path may differ on taskrabbit's compose; adapt
+# to whatever its README says.)
+
+leparvis.dauchez.me {
+    encode zstd gzip
+
+    # API: anything under /api goes to the FastAPI service.
+    handle /api/* {
+        reverse_proxy leparvis-api:8000
+    }
+
+    # Health endpoint exposed at the same path the deploy workflow polls.
+    handle /health {
+        reverse_proxy leparvis-api:8000
+    }
+
+    # Documentation surface (FastAPI auto-generated).
+    handle /docs* /redoc* /openapi.json {
+        reverse_proxy leparvis-api:8000
+    }
+
+    # Everything else is the static frontend (nginx).
+    handle {
+        reverse_proxy leparvis-web:80
+    }
+
+    # Logs to a dedicated file so they don't get tangled with taskrabbit's.
+    log {
+        output file /var/log/caddy/leparvis-access.log
+        format json
+    }
+}

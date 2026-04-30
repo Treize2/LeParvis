@@ -12,15 +12,14 @@ draft for an admin to review than to ingest nothing.
 """
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 
-from .base import ScrapedCelebration, ScrapedChurch, ScrapeResult, Scraper
+from .base import ScrapedCelebration, ScrapedChurch, Scraper, ScrapeResult
 from .parsers.jsonld_parser import parse_jsonld_events
 from .parsers.time_parser import parse_schedule
-
 
 SCHEDULE_KEYWORDS = ["horaire", "messes", "celebrations", "office", "schedule", "vepres", "laudes"]
 

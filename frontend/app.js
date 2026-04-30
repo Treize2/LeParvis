@@ -18,6 +18,15 @@ const state = {
 const el = (sel, ctx = document) => ctx.querySelector(sel);
 const els = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
 
+// Default the API base to localhost in dev and same-origin in prod (where
+// Caddy reverse-proxies /api/* to the FastAPI container).
+(function initApiBase() {
+  const input = document.getElementById("api-base");
+  if (!input.value) {
+    const host = window.location.hostname;
+    input.value = host === "localhost" || host === "127.0.0.1" ? "http://localhost:8000" : "";
+  }
+})();
 const apiBase = () => el("#api-base").value.replace(/\/$/, "");
 
 const DAY_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];

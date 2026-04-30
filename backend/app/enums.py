@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class ChurchType(str, Enum):
+class ChurchType(StrEnum):
     PARISH = "parish"            # paroisse / église paroissiale
     CATHEDRAL = "cathedral"      # cathédrale
     BASILICA = "basilica"        # basilique
@@ -17,7 +17,7 @@ class ChurchType(str, Enum):
     OTHER = "other"
 
 
-class CelebrationType(str, Enum):
+class CelebrationType(StrEnum):
     MASS = "mass"                # messe
     LAUDS = "lauds"              # laudes
     TIERCE = "tierce"            # tierce
@@ -35,7 +35,7 @@ class CelebrationType(str, Enum):
     OTHER = "other"
 
 
-class Rite(str, Enum):
+class Rite(StrEnum):
     ORDINARY = "ordinary"            # forme ordinaire (Vatican II / Novus Ordo)
     EXTRAORDINARY = "extraordinary"  # forme extraordinaire (Tridentin / 1962)
     BYZANTINE = "byzantine"
@@ -44,7 +44,7 @@ class Rite(str, Enum):
     OTHER = "other"
 
 
-class Community(str, Enum):
+class Community(StrEnum):
     DIOCESAN = "diocesan"
     BENEDICTINE = "benedictine"
     CISTERCIAN = "cistercian"

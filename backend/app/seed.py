@@ -8,7 +8,6 @@ from .database import SessionLocal, init_db
 from .models import Celebration, Church
 from .services.slug import slugify
 
-
 SEED = [
     {
         "name": "Cathédrale Notre-Dame de Paris",

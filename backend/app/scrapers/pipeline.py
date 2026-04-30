@@ -1,14 +1,14 @@
 """Persistence pipeline for scraped data: dedupe, upsert, and audit."""
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Iterable
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import Celebration, Church
-from ..services.slug import slugify, unique_slug
+from ..services.slug import unique_slug
 from .base import ScrapedCelebration, ScrapedChurch, ScrapeResult
 
 

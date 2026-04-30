@@ -1,21 +1,80 @@
+# Production compose for the Scaleway instance.
+#
+# - API and Web are pulled from the Scaleway Container Registry (the deploy
+#   workflow exports API_IMAGE / WEB_IMAGE before running `docker compose up`).
+# - No host port mapping: the existing taskrabbit Caddy reverse-proxies
+#   leparvis.dauchez.me to these containers via the shared external `web`
+#   Docker network. See deploy/Caddyfile.snippet.
+# - For a standalone deployment (no taskrabbit), use the `edge` profile to
+#   bring up our own Caddy on 80/443.
+#
+# For local development run instead:
+#   docker compose -f docker-compose.dev.yml up --build
+
 services:
   api:
-    build: ./backend
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
-      - api_data:/app/data
+    image: ${API_IMAGE:-rg.fr-par.scw.cloud/treize/leparvis-api:latest}
+    container_name: leparvis-api
+    restart: unless-stopped
+    pull_policy: ${API_PULL_POLICY:-missing}
     environment:
-      - LEPARVIS_DATABASE_URL=sqlite:////app/data/leparvis.db
-      - LEPARVIS_CORS_ORIGINS=["*"]
+      LEPARVIS_DATABASE_URL: sqlite:////app/data/leparvis.db
+      LEPARVIS_CORS_ORIGINS: '["https://${DOMAIN_NAME:-leparvis.dauchez.me}"]'
+      LEPARVIS_SCRAPER_USER_AGENT: ${SCRAPER_USER_AGENT:-LeParvisBot/0.1 (+contact@dauchez.me)}
+    volumes:
+      - api_data:/app/data
+    networks:
+      - internal
+      - web
+    expose:
+      - "8000"
 
   web:
-    build: ./frontend
-    ports:
-      - "5173:80"
+    image: ${WEB_IMAGE:-rg.fr-par.scw.cloud/treize/leparvis-web:latest}
+    container_name: leparvis-web
+    restart: unless-stopped
+    pull_policy: ${WEB_PULL_POLICY:-missing}
     depends_on:
       - api
+    networks:
+      - internal
+      - web
+    expose:
+      - "80"
+
+  # Optional: bring our own Caddy. Only used for standalone deployments
+  # (when taskrabbit's Caddy is not handling HTTPS for us).
+  #   docker compose --profile edge up -d
+  edge:
+    image: caddy:2-alpine
+    container_name: leparvis-edge
+    restart: unless-stopped
+    profiles: [edge]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME:-leparvis.dauchez.me}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@dauchez.me}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - internal
+    depends_on:
+      - api
+      - web
+
+networks:
+  internal:
+    name: leparvis_internal
+  # Shared with taskrabbit's stack — Caddy resolves leparvis-api/web by name.
+  web:
+    name: ${SHARED_NETWORK:-web}
+    external: true
 
 volumes:
   api_data:
+  caddy_data:
+  caddy_config:

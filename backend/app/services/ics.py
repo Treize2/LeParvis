@@ -5,7 +5,6 @@ from ics.grammar.parse import ContentLine
 
 from ..models import Celebration, Church
 
-
 _DAY_NAMES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
 
 

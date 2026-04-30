@@ -75,13 +75,35 @@ python -m http.server 5173
 
 Puis http://localhost:5173.
 
-### Avec Docker
+### Avec Docker (dev local)
 
 ```bash
-docker compose up --build
+docker compose -f docker-compose.dev.yml up --build
 ```
 
 API : http://localhost:8000/docs · Frontend : http://localhost:5173.
+
+> Le `docker-compose.yml` à la racine est la **stack de production** (images
+> tirées du Scaleway Container Registry, sans port host, branchée sur le
+> réseau Docker `web` partagé avec taskrabbit). Pour le dev local utilise
+> `docker-compose.dev.yml`.
+
+## Déploiement
+
+Hébergement cible : la même VM Scaleway que **taskrabbit**, exposée derrière le
+Caddy déjà en place sur cette instance, sur l'URL `https://leparvis.dauchez.me`.
+
+Pipeline GitHub Actions :
+
+1. `ci.yml` (lint + tests + audit + secret-scan) sur PR et push `main`.
+2. `auto-merge.yml` fusionne automatiquement la branche
+   `claude/catholic-mass-schedule-app-u5hhP` dans `main`.
+3. `deploy.yml` (déclenché après une CI verte sur `main`) construit les
+   images, les pousse dans Scaleway Container Registry, puis SSH sur
+   l'instance pour `git pull` + `docker compose pull` + `docker compose up -d`.
+
+Configuration une fois pour toutes : voir [`deploy/INSTANCE_BOOTSTRAP.md`](deploy/INSTANCE_BOOTSTRAP.md).
+Snippet à coller dans le Caddyfile de taskrabbit : [`deploy/Caddyfile.snippet`](deploy/Caddyfile.snippet).
 
 ## API
 

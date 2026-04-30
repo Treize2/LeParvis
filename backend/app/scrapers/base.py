@@ -5,9 +5,9 @@ import hashlib
 import json
 import os
 import time as _time
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, time
-from typing import Iterable
 from urllib.robotparser import RobotFileParser
 
 import httpx
@@ -67,7 +67,7 @@ class Scraper(abc.ABC):
         self._client = client
         self._owns_client = client is None
 
-    async def __aenter__(self) -> "Scraper":
+    async def __aenter__(self) -> Scraper:
         if self._client is None:
             self._client = httpx.AsyncClient(
                 timeout=settings.scraper_timeout,
@@ -143,7 +143,7 @@ def _cache_read(url: str, ttl_seconds: int = 24 * 3600) -> httpx.Response | None
         return None
     if _time.time() - os.path.getmtime(path) > ttl_seconds:
         return None
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
     request = httpx.Request("GET", url)
     return httpx.Response(
