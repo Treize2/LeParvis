@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeParvis · Horaires des célébrations catholiques</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>LeParvis</h1>
+      <span class="tagline">Trouver une messe, des laudes, des vêpres près de chez vous</span>
+    </div>
+    <div class="api-config">
+      <label>API
+        <input id="api-base" type="text" value="http://localhost:8000" />
+      </label>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="filters">
+      <h2>Recherche</h2>
+
+      <label>
+        <span>Mot-clé</span>
+        <input id="f-query" type="text" placeholder="ex. Saint-Sulpice, Solesmes…" />
+      </label>
+
+      <div class="row">
+        <label>
+          <span>Ville</span>
+          <input id="f-city" type="text" placeholder="Paris" />
+        </label>
+        <label>
+          <span>Code postal</span>
+          <input id="f-postal" type="text" placeholder="75004" />
+        </label>
+      </div>
+
+      <fieldset>
+        <legend>Type de lieu</legend>
+        <div id="f-church-types" class="chips"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Type de célébration</legend>
+        <div id="f-celebration-types" class="chips"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Communauté</legend>
+        <div id="f-communities" class="chips"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Rite</legend>
+        <div id="f-rites" class="chips"></div>
+      </fieldset>
+
+      <div class="row">
+        <label>
+          <span>Jour</span>
+          <select id="f-day">
+            <option value="">Indifférent</option>
+            <option value="0">Lundi</option>
+            <option value="1">Mardi</option>
+            <option value="2">Mercredi</option>
+            <option value="3">Jeudi</option>
+            <option value="4">Vendredi</option>
+            <option value="5">Samedi</option>
+            <option value="6">Dimanche</option>
+          </select>
+        </label>
+        <label>
+          <span>Après</span>
+          <input id="f-after" type="time" />
+        </label>
+        <label>
+          <span>Avant</span>
+          <input id="f-before" type="time" />
+        </label>
+      </div>
+
+      <fieldset class="geo">
+        <legend>Autour de moi</legend>
+        <button type="button" id="btn-geoloc">📍 Me géolocaliser</button>
+        <div class="row">
+          <label><span>Lat</span><input id="f-lat" type="number" step="0.0001" /></label>
+          <label><span>Lon</span><input id="f-lon" type="number" step="0.0001" /></label>
+          <label><span>Rayon (km)</span><input id="f-radius" type="number" min="1" max="200" value="10" /></label>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button type="button" id="btn-search" class="primary">Rechercher</button>
+        <button type="button" id="btn-reset">Effacer</button>
+      </div>
+
+      <details class="ingest">
+        <summary>⚙️ Collecter de nouvelles données</summary>
+        <p class="hint">Lance le scraper messes.info ou un site paroissial.</p>
+        <div class="row">
+          <button type="button" id="btn-ingest-area">messes.info pour la zone</button>
+        </div>
+        <label>
+          <span>URL d'une page paroisse / monastère</span>
+          <input id="ingest-url" type="url" placeholder="https://www.exemple-paroisse.fr/horaires" />
+        </label>
+        <button type="button" id="btn-ingest-url">Extraire</button>
+        <pre id="ingest-output" class="ingest-output"></pre>
+      </details>
+    </aside>
+
+    <section class="results">
+      <div class="results-header">
+        <h2 id="results-title">Résultats</h2>
+        <div class="view-toggle">
+          <button type="button" data-view="list" class="active">Liste</button>
+          <button type="button" data-view="map">Carte</button>
+        </div>
+      </div>
+      <div id="list-view" class="list-view"></div>
+      <div id="map-view" class="map-view hidden"></div>
+    </section>
+  </main>
+
+  <template id="church-card">
+    <article class="card">
+      <header>
+        <h3 class="name"></h3>
+        <span class="badge type"></span>
+      </header>
+      <p class="meta"></p>
+      <ul class="celebrations"></ul>
+      <footer>
+        <a class="website" target="_blank" rel="noopener">Site web ↗</a>
+        <span class="distance"></span>
+      </footer>
+    </article>
+  </template>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

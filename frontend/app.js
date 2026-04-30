@@ -1,0 +1,336 @@
+"use strict";
+
+// ---------- State ---------------------------------------------------------
+
+const state = {
+  filters: {
+    type: new Set(),
+    celebration_type: new Set(),
+    community: new Set(),
+    rite: new Set(),
+  },
+  taxonomy: null,
+  results: { total: 0, items: [] },
+  map: null,
+  markersLayer: null,
+};
+
+const el = (sel, ctx = document) => ctx.querySelector(sel);
+const els = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+
+const apiBase = () => el("#api-base").value.replace(/\/$/, "");
+
+const DAY_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
+// ---------- API helpers ---------------------------------------------------
+
+async function api(path, options = {}) {
+  const res = await fetch(apiBase() + path, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`API ${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
+// ---------- Filter chips --------------------------------------------------
+
+function renderChips(containerId, items, key) {
+  const container = el(containerId);
+  container.innerHTML = "";
+  for (const item of items) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.textContent = item.label;
+    chip.dataset.value = item.value;
+    chip.addEventListener("click", () => {
+      const set = state.filters[key];
+      if (set.has(item.value)) {
+        set.delete(item.value);
+        chip.classList.remove("active");
+      } else {
+        set.add(item.value);
+        chip.classList.add("active");
+      }
+    });
+    container.appendChild(chip);
+  }
+}
+
+async function loadTaxonomy() {
+  try {
+    state.taxonomy = await api("/api/meta/taxonomy");
+    renderChips("#f-church-types", state.taxonomy.church_types, "type");
+    renderChips("#f-celebration-types", state.taxonomy.celebration_types, "celebration_type");
+    renderChips("#f-communities", state.taxonomy.communities, "community");
+    renderChips("#f-rites", state.taxonomy.rites, "rite");
+  } catch (err) {
+    console.error("Failed to load taxonomy", err);
+    el("#results-title").textContent = "API injoignable — vérifie l'URL en haut à droite.";
+  }
+}
+
+// ---------- Search --------------------------------------------------------
+
+function buildQuery() {
+  const params = new URLSearchParams();
+  const q = el("#f-query").value.trim();
+  if (q) params.set("q", q);
+  const city = el("#f-city").value.trim();
+  if (city) params.set("city", city);
+  const postal = el("#f-postal").value.trim();
+  if (postal) params.set("postal_code", postal);
+  for (const [key, set] of Object.entries(state.filters)) {
+    for (const v of set) params.append(key, v);
+  }
+  const day = el("#f-day").value;
+  if (day !== "") params.set("day_of_week", day);
+  const after = el("#f-after").value;
+  if (after) params.set("after", after);
+  const before = el("#f-before").value;
+  if (before) params.set("before", before);
+  const lat = el("#f-lat").value;
+  const lon = el("#f-lon").value;
+  const radius = el("#f-radius").value;
+  if (lat && lon && radius) {
+    params.set("latitude", lat);
+    params.set("longitude", lon);
+    params.set("radius_km", radius);
+  }
+  return params;
+}
+
+async function runSearch() {
+  el("#results-title").textContent = "Recherche…";
+  try {
+    const params = buildQuery();
+    const data = await api("/api/search?" + params.toString());
+    state.results = data;
+    renderResults();
+  } catch (err) {
+    el("#results-title").textContent = "Erreur — " + err.message;
+  }
+}
+
+// ---------- Results rendering --------------------------------------------
+
+function celebrationLabel(value) {
+  const item = (state.taxonomy?.celebration_types || []).find((x) => x.value === value);
+  return item ? item.label : value;
+}
+
+function churchTypeLabel(value) {
+  const item = (state.taxonomy?.church_types || []).find((x) => x.value === value);
+  return item ? item.label : value;
+}
+
+function communityLabel(value) {
+  const item = (state.taxonomy?.communities || []).find((x) => x.value === value);
+  return item ? item.label : value;
+}
+
+function formatTime(t) {
+  if (!t) return "";
+  return t.slice(0, 5).replace(":", "h");
+}
+
+function renderResults() {
+  el("#results-title").textContent = `Résultats (${state.results.total})`;
+  renderList();
+  renderMap();
+}
+
+function renderList() {
+  const list = el("#list-view");
+  list.innerHTML = "";
+  if (!state.results.items.length) {
+    list.innerHTML = "<p style='color:#5a4a3c'>Aucun lieu ne correspond à ces filtres.</p>";
+    return;
+  }
+  const tpl = el("#church-card");
+  for (const item of state.results.items) {
+    const node = tpl.content.cloneNode(true);
+    const c = item.church;
+    node.querySelector(".name").textContent = c.name;
+    node.querySelector(".badge").textContent = churchTypeLabel(c.type);
+    node.querySelector(".meta").textContent =
+      [c.address, c.postal_code, c.city].filter(Boolean).join(" · ") +
+      (c.community ? ` — ${communityLabel(c.community)}` : "");
+
+    const cels = node.querySelector(".celebrations");
+    const sorted = [...item.matched_celebrations].sort((a, b) => {
+      const da = a.day_of_week ?? -1;
+      const db = b.day_of_week ?? -1;
+      if (da !== db) return da - db;
+      return (a.start_time || "").localeCompare(b.start_time || "");
+    });
+    if (!sorted.length) {
+      const li = document.createElement("li");
+      li.textContent = "Pas de célébration enregistrée.";
+      cels.appendChild(li);
+    }
+    for (const cel of sorted) {
+      const li = document.createElement("li");
+      const time = document.createElement("span");
+      time.className = "time";
+      const day = cel.day_of_week == null ? "Quotidien" : DAY_LABELS[cel.day_of_week];
+      time.textContent = `${day} ${formatTime(cel.start_time)}`;
+      const label = document.createElement("span");
+      label.className = "label";
+      label.textContent = " · " + celebrationLabel(cel.type);
+      li.appendChild(time);
+      li.appendChild(label);
+      const extra = [];
+      if (cel.rite && cel.rite !== "ordinary") extra.push(cel.rite);
+      if (cel.language) extra.push(cel.language.toUpperCase());
+      if (extra.length) {
+        const ex = document.createElement("span");
+        ex.className = "extra";
+        ex.textContent = `(${extra.join(", ")})`;
+        li.appendChild(ex);
+      }
+      cels.appendChild(li);
+    }
+
+    const link = node.querySelector(".website");
+    if (c.website) {
+      link.href = c.website;
+      link.textContent = "Site web ↗";
+    } else {
+      link.remove();
+    }
+    if (item.distance_km != null) {
+      node.querySelector(".distance").textContent = `${item.distance_km} km`;
+    }
+    list.appendChild(node);
+  }
+}
+
+function renderMap() {
+  const container = el("#map-view");
+  if (!state.map) {
+    state.map = L.map(container).setView([46.6, 2.5], 5);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap",
+      maxZoom: 18,
+    }).addTo(state.map);
+    state.markersLayer = L.layerGroup().addTo(state.map);
+  }
+  state.markersLayer.clearLayers();
+  const points = [];
+  for (const item of state.results.items) {
+    const c = item.church;
+    if (c.latitude == null || c.longitude == null) continue;
+    const marker = L.marker([c.latitude, c.longitude]);
+    const cels = item.matched_celebrations
+      .slice(0, 5)
+      .map((cel) => {
+        const day = cel.day_of_week == null ? "Quotidien" : DAY_LABELS[cel.day_of_week];
+        return `<li>${day} ${formatTime(cel.start_time)} — ${celebrationLabel(cel.type)}</li>`;
+      })
+      .join("");
+    marker.bindPopup(
+      `<strong>${c.name}</strong><br>${churchTypeLabel(c.type)}<br>` +
+      [c.address, c.city].filter(Boolean).join(", ") +
+      `<ul style="padding-left: 18px; margin: 6px 0">${cels}</ul>` +
+      (c.website ? `<a href="${c.website}" target="_blank" rel="noopener">Site ↗</a>` : "")
+    );
+    state.markersLayer.addLayer(marker);
+    points.push([c.latitude, c.longitude]);
+  }
+  if (points.length) {
+    state.map.fitBounds(points, { padding: [40, 40], maxZoom: 14 });
+  }
+  setTimeout(() => state.map.invalidateSize(), 100);
+}
+
+// ---------- View toggle ---------------------------------------------------
+
+els(".view-toggle button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    els(".view-toggle button").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    const view = btn.dataset.view;
+    el("#list-view").classList.toggle("hidden", view !== "list");
+    el("#map-view").classList.toggle("hidden", view !== "map");
+    if (view === "map") setTimeout(() => state.map?.invalidateSize(), 100);
+  });
+});
+
+// ---------- Geolocation --------------------------------------------------
+
+el("#btn-geoloc").addEventListener("click", () => {
+  if (!navigator.geolocation) {
+    alert("Géolocalisation indisponible dans ce navigateur.");
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      el("#f-lat").value = pos.coords.latitude.toFixed(5);
+      el("#f-lon").value = pos.coords.longitude.toFixed(5);
+    },
+    (err) => alert("Géolocalisation refusée: " + err.message)
+  );
+});
+
+// ---------- Reset / search -----------------------------------------------
+
+el("#btn-search").addEventListener("click", runSearch);
+el("#btn-reset").addEventListener("click", () => {
+  els("input").forEach((i) => (i.value = ""));
+  el("#f-day").value = "";
+  el("#f-radius").value = "10";
+  for (const set of Object.values(state.filters)) set.clear();
+  els(".chip.active").forEach((c) => c.classList.remove("active"));
+  runSearch();
+});
+
+// ---------- Ingestion ----------------------------------------------------
+
+el("#btn-ingest-area").addEventListener("click", async () => {
+  const lat = parseFloat(el("#f-lat").value);
+  const lon = parseFloat(el("#f-lon").value);
+  const radius = parseFloat(el("#f-radius").value || "10");
+  if (!lat || !lon) {
+    alert("Renseigne d'abord une latitude/longitude (utilise 📍).");
+    return;
+  }
+  el("#ingest-output").textContent = "Extraction en cours…";
+  try {
+    const report = await api("/api/ingest/messesinfo", {
+      method: "POST",
+      body: JSON.stringify({ latitude: lat, longitude: lon, radius_km: radius, limit: 25 }),
+    });
+    el("#ingest-output").textContent = JSON.stringify(report, null, 2);
+    runSearch();
+  } catch (err) {
+    el("#ingest-output").textContent = "Erreur: " + err.message;
+  }
+});
+
+el("#btn-ingest-url").addEventListener("click", async () => {
+  const url = el("#ingest-url").value.trim();
+  if (!url) return;
+  el("#ingest-output").textContent = "Analyse de la page…";
+  try {
+    const report = await api("/api/ingest/url", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    });
+    el("#ingest-output").textContent = JSON.stringify(report, null, 2);
+    runSearch();
+  } catch (err) {
+    el("#ingest-output").textContent = "Erreur: " + err.message;
+  }
+});
+
+// ---------- Boot ---------------------------------------------------------
+
+(async function init() {
+  await loadTaxonomy();
+  await runSearch();
+})();
