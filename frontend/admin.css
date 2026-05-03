@@ -823,6 +823,138 @@ code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
 }
 
 /* =========================================================================
+   Backdrop (shared by import / merge slide-overs)
+   ========================================================================= */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 33, 24, 0.45);
+  z-index: 90;
+  animation: fade-in 0.18s ease;
+}
+
+/* =========================================================================
+   Import slide-over
+   ========================================================================= */
+
+.import-panel {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: min(560px, 96vw);
+  background: var(--paper);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  animation: slide-in 0.22s ease-out;
+}
+@keyframes slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.import-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+  background: var(--paper-2);
+}
+.import-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.import-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.import-section,
+.import-result {
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+
+.import-section-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.import-step {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 50%;
+  font-size: 13px;
+}
+.import-section-head h3 {
+  margin: 0 0 2px;
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.import-section-head .hint {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.import-section .row { display: flex; gap: 8px; margin-top: 8px; }
+.import-section label { display: block; flex: 1; }
+.import-section label.full { flex: 1 0 100%; }
+.import-section label > span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+.import-section input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 14px;
+}
+.import-section input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.import-actions {
+  margin-top: 14px;
+  justify-content: flex-end;
+}
+
+.import-result .code-block {
+  margin-top: 8px;
+}
+
+/* =========================================================================
    Toasts
    ========================================================================= */
 

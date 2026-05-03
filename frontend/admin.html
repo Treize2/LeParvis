@@ -53,6 +53,8 @@
       <aside class="sidebar">
         <div class="sidebar-header">
           <input id="admin-search" type="text" placeholder="🔍 Rechercher…" />
+          <button type="button" id="btn-import" class="btn btn-ghost btn-icon"
+                  title="Importer en masse">📥</button>
           <button type="button" id="btn-new-church" class="btn btn-ghost btn-icon"
                   title="Nouveau lieu">+</button>
         </div>
@@ -300,6 +302,76 @@
       </div>
     </div>
   </div>
+
+  <!-- ============= IMPORT SLIDE-OVER ============= -->
+  <aside id="import-panel" class="import-panel hidden">
+    <header class="import-header">
+      <h2>📥 Importer des paroisses</h2>
+      <button type="button" class="modal-close" data-close-import aria-label="Fermer">&times;</button>
+    </header>
+    <div class="import-body">
+
+      <section class="import-section">
+        <header class="import-section-head">
+          <span class="import-step">1</span>
+          <div>
+            <h3>Lieux dans une zone (OpenStreetMap)</h3>
+            <p class="hint">
+              Récupère tous les lieux de culte catholiques dans un rayon. Les fiches
+              sont créées <strong>sans horaires</strong> ; complète ensuite avec le
+              bouton « Réimporter horaires » sur chaque fiche.
+            </p>
+          </div>
+        </header>
+        <div class="row">
+          <label><span>Latitude</span><input id="import-lat" type="number" step="0.0001" placeholder="48.8530" /></label>
+          <label><span>Longitude</span><input id="import-lon" type="number" step="0.0001" placeholder="2.3499" /></label>
+        </div>
+        <div class="row">
+          <label><span>Rayon (km)</span><input id="import-radius" type="number" min="1" max="50" value="10" /></label>
+          <label><span>Limite</span><input id="import-limit" type="number" min="1" max="500" value="100" /></label>
+        </div>
+        <div class="row import-actions">
+          <button type="button" id="btn-import-geoloc" class="btn btn-secondary">📍 Géolocaliser</button>
+          <button type="button" id="btn-import-osm" class="btn btn-primary">🗺 Lancer l'import OSM</button>
+        </div>
+      </section>
+
+      <section class="import-section">
+        <header class="import-section-head">
+          <span class="import-step">2</span>
+          <div>
+            <h3>Une paroisse via son site web</h3>
+            <p class="hint">
+              Récupère <strong>les horaires</strong> depuis la page d'une paroisse.
+              Les sites bloquant les robots peuvent être forcés via robots.txt après
+              confirmation.
+            </p>
+          </div>
+        </header>
+        <label class="full">
+          <span>URL de la page horaires</span>
+          <input id="import-url" type="url" placeholder="https://exemple-paroisse.fr/horaires" />
+        </label>
+        <div class="row import-actions">
+          <button type="button" id="btn-import-preview" class="btn btn-secondary">🔍 Diagnostiquer</button>
+          <button type="button" id="btn-import-url" class="btn btn-primary">📥 Importer les horaires</button>
+        </div>
+      </section>
+
+      <section class="import-result">
+        <header class="import-section-head">
+          <span class="import-step">📊</span>
+          <div>
+            <h3>Rapport</h3>
+            <p class="hint" id="import-report-hint">Aucune action lancée pour l'instant.</p>
+          </div>
+        </header>
+        <pre id="import-output" class="code-block">—</pre>
+      </section>
+    </div>
+  </aside>
+  <div id="import-backdrop" class="backdrop hidden" data-close-import></div>
 
   <!-- ============= TOAST CONTAINER ============= -->
   <div id="toast-container" class="toast-container"></div>

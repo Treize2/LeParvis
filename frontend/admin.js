@@ -673,6 +673,136 @@ $("#btn-create-church").addEventListener("click", async () => {
 });
 
 // =========================================================================
+// Import slide-over (OSM area + per-URL parish)
+// =========================================================================
+
+$("#btn-import").addEventListener("click", openImportPanel);
+
+function openImportPanel() {
+  $("#import-panel").classList.remove("hidden");
+  $("#import-backdrop").classList.remove("hidden");
+}
+function closeImportPanel() {
+  $("#import-panel").classList.add("hidden");
+  $("#import-backdrop").classList.add("hidden");
+}
+document.addEventListener("click", (e) => {
+  if (e.target.matches("[data-close-import]")) closeImportPanel();
+});
+
+// Geolocate helper
+$("#btn-import-geoloc").addEventListener("click", () => {
+  if (!navigator.geolocation) {
+    toast("Géolocalisation indisponible.", "error");
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      $("#import-lat").value = pos.coords.latitude.toFixed(5);
+      $("#import-lon").value = pos.coords.longitude.toFixed(5);
+      toast("Position détectée", "success", 1800);
+    },
+    (err) => toast("Géolocalisation refusée: " + err.message, "error"),
+  );
+});
+
+function setImportReport(text, hint = "") {
+  $("#import-output").textContent = text;
+  if (hint) $("#import-report-hint").textContent = hint;
+}
+
+$("#btn-import-osm").addEventListener("click", async () => {
+  const lat = parseFloat($("#import-lat").value);
+  const lon = parseFloat($("#import-lon").value);
+  const radius = parseFloat($("#import-radius").value || "10");
+  const limit = parseInt($("#import-limit").value || "100", 10);
+  if (!isFinite(lat) || !isFinite(lon)) {
+    toast("Renseigne lat/lon (ou utilise 📍).", "error");
+    return;
+  }
+  setImportReport("Recherche OSM en cours…", "Appel à overpass-api.de");
+  try {
+    const report = await fetch(state.apiBase + "/api/ingest/osm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ latitude: lat, longitude: lon, radius_km: radius, limit }),
+    }).then((r) => r.json());
+    setImportReport(
+      JSON.stringify(report, null, 2),
+      `${report.created_churches} créé(s), ${report.updated_churches} mis à jour, ${(report.errors || []).length} erreur(s)`,
+    );
+    toast(`OSM : ${report.created_churches} créés, ${report.updated_churches} mis à jour`, "success", 4500);
+    await refreshChurchList();
+  } catch (err) {
+    setImportReport("Erreur: " + err.message, "Échec de l'import OSM");
+    toast("Erreur : " + err.message, "error", 6000);
+  }
+});
+
+async function importUrl(force) {
+  const url = $("#import-url").value.trim();
+  if (!url) { toast("Renseigne une URL.", "error"); return; }
+  setImportReport("Extraction…", "Lecture + parsing du site");
+  try {
+    const res = await fetch(state.apiBase + "/api/ingest/url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, force: !!force }),
+    });
+    const body = await res.json();
+    if (res.status === 451) {
+      const ok = confirm(
+        "Le site bloque les robots via robots.txt.\n\n" +
+        "Forcer l'extraction en l'ignorant ? (Tu prends la responsabilité.)"
+      );
+      if (ok) return importUrl(true);
+      setImportReport("Annulé — robots.txt respecté.", "Annulé");
+      return;
+    }
+    if (!res.ok) {
+      setImportReport(JSON.stringify(body, null, 2), `Erreur ${res.status}`);
+      toast(`Erreur ${res.status}`, "error");
+      return;
+    }
+    setImportReport(
+      JSON.stringify(body, null, 2),
+      `${body.created_celebrations} célébrations créées, ${body.updated_celebrations} mises à jour`,
+    );
+    toast(`URL : ${body.created_celebrations} célébrations créées`, "success");
+    await refreshChurchList();
+  } catch (err) {
+    setImportReport("Erreur: " + err.message, "Échec");
+    toast("Erreur : " + err.message, "error", 6000);
+  }
+}
+$("#btn-import-url").addEventListener("click", () => importUrl(false));
+
+$("#btn-import-preview").addEventListener("click", async () => {
+  const url = $("#import-url").value.trim();
+  if (!url) { toast("Renseigne une URL.", "error"); return; }
+  setImportReport("Diagnostic…", "Lecture sans écriture en base");
+  try {
+    const data = await fetch(state.apiBase + "/api/ingest/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, force: true }),
+    }).then((r) => r.json());
+    const found = (data.parsed_from_body || []).length;
+    setImportReport(JSON.stringify(data, null, 2),
+      `${found} créneau(x) détecté(s) — rien n'a été écrit en base`);
+  } catch (err) {
+    setImportReport("Erreur: " + err.message, "Échec");
+  }
+});
+
+// Close import on Escape
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("#import-panel").classList.contains("hidden")) {
+    closeImportPanel();
+  }
+});
+
+// =========================================================================
 // Modal helpers
 // =========================================================================
 
