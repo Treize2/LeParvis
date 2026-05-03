@@ -198,3 +198,53 @@ def test_heuristic_schedule_parser_french():
     slots = parse_schedule(text)
     types = {s.type for s in slots}
     assert {"mass", "vespers", "confession"} <= types
+
+
+def test_parser_handles_spaces_in_time():
+    from app.scrapers.parsers.time_parser import parse_schedule
+
+    slots = parse_schedule("Messe le dimanche à 18 h 30")
+    assert any(
+        s.type == "mass" and s.day_of_week == 6
+        and s.start_time and s.start_time.hour == 18 and s.start_time.minute == 30
+        for s in slots
+    )
+
+
+def test_parser_propagates_day_across_lines():
+    """Bullet-list under a 'Dimanche' header should mark every line as Sunday."""
+    from app.scrapers.parsers.time_parser import parse_schedule
+
+    text = (
+        "Dimanche\n"
+        "- Messe à 10h30\n"
+        "- Vêpres à 18h"
+    )
+    slots = parse_schedule(text)
+    assert {s.type for s in slots} == {"mass", "vespers"}
+    assert all(s.day_of_week == 6 for s in slots)
+
+
+def test_parser_expands_day_range():
+    """'Du lundi au vendredi à 18h' yields five slots (Mon-Fri)."""
+    from app.scrapers.parsers.time_parser import parse_schedule
+
+    slots = parse_schedule("Messe du lundi au vendredi à 18h")
+    assert {s.day_of_week for s in slots if s.type == "mass"} == {0, 1, 2, 3, 4}
+
+
+def test_parser_keeps_multiple_times_in_same_phrase():
+    """'Messe à 10h, 11h et 18h' yields three slots."""
+    from app.scrapers.parsers.time_parser import parse_schedule
+
+    slots = parse_schedule("Dimanche : messe à 10h, 11h et 18h")
+    times = sorted(s.start_time.hour for s in slots if s.type == "mass" and s.start_time)
+    assert times == [10, 11, 18]
+    assert all(s.day_of_week == 6 for s in slots if s.type == "mass")
+
+
+def test_parser_handles_en_semaine_shorthand():
+    from app.scrapers.parsers.time_parser import parse_schedule
+
+    slots = parse_schedule("En semaine, messe à 12h15")
+    assert {s.day_of_week for s in slots if s.type == "mass"} == {0, 1, 2, 3, 4}

@@ -87,6 +87,11 @@ class Scraper(abc.ABC):
 
     # ---- Helpers --------------------------------------------------------
 
+    BROWSER_USER_AGENT = (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/605.1.15 "
+        "(KHTML, like Gecko) Version/16.5 Safari/605.1.15"
+    )
+
     async def _get(self, url: str, **kwargs) -> httpx.Response:
         cached = _cache_read(url)
         if cached is not None:
@@ -94,6 +99,17 @@ class Scraper(abc.ABC):
         assert self._client is not None
         await _polite_delay()
         response = await self._client.get(url, **kwargs)
+
+        # Some parish sites (Wix, Squarespace, Cloudflare-fronted) reject
+        # generic bot UAs with 403. Retry once with a realistic browser UA
+        # before giving up — we already respect robots.txt upstream.
+        if response.status_code in (401, 403, 406, 429):
+            response = await self._client.get(
+                url,
+                headers={"User-Agent": self.BROWSER_USER_AGENT},
+                **kwargs,
+            )
+
         response.raise_for_status()
         _cache_write(url, response)
         return response

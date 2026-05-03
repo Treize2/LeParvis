@@ -6,6 +6,8 @@ from ..schemas import IngestArea, IngestReport, IngestUrlRequest
 from ..scrapers import IngestionPipeline, get_scraper_for_url
 from ..scrapers.osm_overpass import OsmOverpassScraper
 from ..scrapers.paroisse_html import ParoisseHtmlScraper
+from ..scrapers.parsers.jsonld_parser import parse_jsonld_events
+from ..scrapers.parsers.time_parser import parse_schedule
 
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
 
@@ -95,3 +97,69 @@ async def ingest_url(request: IngestUrlRequest, db: Session = Depends(get_db)):
         errors=pipeline.errors,
         samples=pipeline.samples,
     )
+
+
+@router.post("/preview")
+async def preview_url(request: IngestUrlRequest):
+    """Diagnose an ingest target *without* writing to the database.
+
+    Returns:
+      - http: status code, content-type, length
+      - jsonld_events: count of schema.org/Event entries detected
+      - candidates: text fragments that contain schedule keywords (truncated)
+      - parsed_from_body: the slots that would be persisted (type/day/time/confidence)
+
+    Use this to understand why a particular parish page yields zero schedules.
+    """
+    async with ParoisseHtmlScraper() as scraper:
+        try:
+            response = await scraper._get(request.url)  # noqa: SLF001 — diagnostic
+        except PermissionError as exc:
+            raise HTTPException(status_code=451, detail=str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=f"fetch failed: {exc}") from exc
+
+    html = response.text
+
+    jsonld_events = list(parse_jsonld_events(html, source_url=request.url))
+
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "lxml")
+    keywords = [
+        "horaire", "messe", "celebration", "office", "vepres", "laudes",
+        "adoration", "confession",
+    ]
+    candidates: list[str] = []
+    for tag in soup.find_all(["section", "article", "div", "ul", "p", "table"]):
+        text = tag.get_text("\n", strip=True)
+        if not text:
+            continue
+        lowered = text.lower()
+        if any(k in lowered for k in keywords):
+            candidates.append(text[:600])
+        if len(candidates) >= 10:
+            break
+
+    body_text = (soup.find("body") or soup).get_text("\n", strip=True)
+    parsed_from_body = parse_schedule(body_text)
+
+    return {
+        "http": {
+            "status": response.status_code,
+            "content_type": response.headers.get("content-type"),
+            "bytes": len(html),
+        },
+        "jsonld_events": len(jsonld_events),
+        "candidates": candidates,
+        "parsed_from_body": [
+            {
+                "type": s.type,
+                "day_of_week": s.day_of_week,
+                "start_time": s.start_time.isoformat() if s.start_time else None,
+                "rite": s.rite,
+                "confidence": s.confidence,
+            }
+            for s in parsed_from_body
+        ][:50],
+    }
