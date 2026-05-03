@@ -16,5 +16,9 @@ class Settings(BaseSettings):
     # Sources
     messes_info_api_base: str = "https://api.egliseinfo.catholique.fr/api/v1"
 
+    # Admin — set LEPARVIS_ADMIN_TOKEN to enable the /api/admin/* endpoints.
+    # When unset, admin is disabled and every admin call returns 503.
+    admin_token: str = ""
+
 
 settings = Settings()

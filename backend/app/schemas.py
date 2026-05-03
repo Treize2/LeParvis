@@ -112,3 +112,46 @@ class SuggestionCreate(BaseModel):
     payload: dict
     submitter_email: str | None = None
     notes: str | None = None
+
+
+# ---------- Admin -----------------------------------------------------------
+
+
+class ChurchUpdate(BaseModel):
+    """Partial update — only fields present in the body are applied."""
+
+    name: str | None = None
+    type: str | None = None
+    community: str | None = None
+    address: str | None = None
+    city: str | None = None
+    postal_code: str | None = None
+    country: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    diocese: str | None = None
+    website: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    description: str | None = None
+    image_url: str | None = None
+
+
+class CelebrationUpdate(BaseModel):
+    """Partial update for a single celebration row."""
+
+    type: str | None = None
+    rite: str | None = None
+    language: str | None = None
+    day_of_week: int | None = Field(default=None, ge=0, le=6)
+    start_time: time | None = None
+    end_time: time | None = None
+    notes: str | None = None
+    confidence: float | None = None
+
+
+class MergeReport(BaseModel):
+    target_id: int
+    moved_celebrations: int
+    deleted_duplicate_celebrations: int
+    deleted_church_id: int

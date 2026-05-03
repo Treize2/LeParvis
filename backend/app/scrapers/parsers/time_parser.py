@@ -193,7 +193,6 @@ def parse_schedule(raw: str) -> list[ParsedSlot]:
 
     text = _normalize(raw)
     rite = _detect_rite(text)
-    language = _detect_language(text)
 
     slots: list[ParsedSlot] = []
 
@@ -211,6 +210,9 @@ def parse_schedule(raw: str) -> list[ParsedSlot]:
         frag_type = _detect_celebration(fragment)
         frag_days = _detect_days(fragment)
         frag_daily = _is_daily(fragment)
+        # Language is detected per-fragment to avoid 'espagnol' mentioned once
+        # on a 'multilingue' note flagging every mass on the page as Spanish.
+        language = _detect_language(fragment)
 
         # Inherit when missing
         ctype = frag_type or current_type

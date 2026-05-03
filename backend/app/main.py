@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import celebrations, churches, ingest, meta, search, suggestions
+from .api import admin, celebrations, churches, ingest, meta, search, suggestions
 from .config import settings
 from .database import init_db
 
@@ -39,6 +39,7 @@ app.include_router(celebrations.router)
 app.include_router(search.router)
 app.include_router(ingest.router)
 app.include_router(suggestions.router)
+app.include_router(admin.router)
 
 
 @app.get("/")

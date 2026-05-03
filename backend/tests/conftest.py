@@ -12,6 +12,7 @@ _fd, _DB_PATH = tempfile.mkstemp(prefix="leparvis-test-", suffix=".db")
 os.close(_fd)
 os.environ["LEPARVIS_DATABASE_URL"] = f"sqlite:///{_DB_PATH}"
 os.environ["LEPARVIS_SCRAPER_CACHE_DIR"] = tempfile.mkdtemp(prefix="leparvis-cache-")
+os.environ["LEPARVIS_ADMIN_TOKEN"] = "test-secret-token"
 
 
 @pytest.fixture(scope="session")
