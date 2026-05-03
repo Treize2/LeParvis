@@ -65,22 +65,42 @@ class MessesInfoScraper(Scraper):
         }
         try:
             response = await self._get(url, params=params)
+        except httpx.HTTPStatusError as exc:
+            # Surface the upstream status + body so admins can see what changed.
+            sample = (exc.response.text or "")[:300].replace("\n", " ")
+            raise RuntimeError(
+                f"messes.info HTTP {exc.response.status_code} on {exc.request.url}: {sample}"
+            ) from exc
         except httpx.HTTPError as exc:
-            raise RuntimeError(f"messes.info request failed: {exc}") from exc
+            raise RuntimeError(
+                f"messes.info network error on {url} ({type(exc).__name__}): {exc}"
+            ) from exc
 
-        payload = response.json()
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            sample = response.text[:300].replace("\n", " ")
+            raise RuntimeError(
+                f"messes.info returned non-JSON ({response.headers.get('content-type', '?')}): {sample}"
+            ) from exc
+
         records = payload if isinstance(payload, list) else payload.get("places", [])
+        if not isinstance(records, list):
+            raise RuntimeError(
+                f"messes.info: unexpected JSON shape, "
+                f"expected a list or {{places: [...]}}, got keys={list(payload)[:8] if isinstance(payload, dict) else type(payload).__name__}"
+            )
 
         results: list[ScrapeResult] = []
         for record in records:
             try:
                 results.append(self._parse_record(record))
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
                 # Skip the record but keep going; the pipeline will log it.
                 results.append(
                     ScrapeResult(
                         church=ScrapedChurch(
-                            name=str(record.get("name", "Inconnu")),
+                            name=str(record.get("name", "Inconnu")) + f" [parse error: {exc}]",
                             source=self.name,
                         ),
                         celebrations=[],
