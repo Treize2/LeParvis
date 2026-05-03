@@ -4,141 +4,210 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LeParvis · Horaires des célébrations catholiques</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+
+  <!-- Top bar : minimal -->
   <header class="topbar">
-    <div class="brand">
-      <h1>LeParvis</h1>
-      <span class="tagline">Trouver une messe, des laudes, des vêpres près de chez vous</span>
+    <div class="brand-block">
+      <span class="brand-mark">⛪</span>
+      <span class="brand-name">LeParvis</span>
     </div>
-    <div class="api-config">
-      <label>API
-        <input id="api-base" type="text" placeholder="http://localhost:8000 (laisser vide en prod)" />
-      </label>
-    </div>
+    <nav class="topbar-nav">
+      <a href="/admin.html" class="link-muted">Admin</a>
+      <span class="api-pill" title="URL de l'API">
+        <input id="api-base" type="text" placeholder="(même origine)" />
+      </span>
+    </nav>
   </header>
 
-  <main class="layout">
-    <aside class="filters">
-      <h2>Recherche</h2>
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-inner">
+      <h1 class="hero-title">LeParvis</h1>
+      <p class="hero-tagline">
+        Trouver une messe, des laudes, des vêpres
+        <span class="hero-divider">·</span>
+        partout en France
+      </p>
 
-      <label>
-        <span>Mot-clé</span>
-        <input id="f-query" type="text" placeholder="ex. Saint-Sulpice, Solesmes…" />
-      </label>
-
-      <div class="row">
-        <label>
-          <span>Ville</span>
-          <input id="f-city" type="text" placeholder="Paris" />
-        </label>
-        <label>
-          <span>Code postal</span>
-          <input id="f-postal" type="text" placeholder="75004" />
-        </label>
+      <div class="search-shell">
+        <span class="search-icon">🔍</span>
+        <input id="f-query" type="text"
+               placeholder="Une ville, un nom de paroisse, une abbaye…"
+               autocomplete="off" />
+        <button type="button" id="btn-search" class="btn btn-primary search-submit">Rechercher</button>
       </div>
 
-      <fieldset>
-        <legend>Type de lieu</legend>
-        <div id="f-church-types" class="chips"></div>
-      </fieldset>
-
-      <fieldset>
-        <legend>Type de célébration</legend>
-        <div id="f-celebration-types" class="chips"></div>
-      </fieldset>
-
-      <fieldset>
-        <legend>Communauté</legend>
-        <div id="f-communities" class="chips"></div>
-      </fieldset>
-
-      <fieldset>
-        <legend>Rite</legend>
-        <div id="f-rites" class="chips"></div>
-      </fieldset>
-
-      <div class="row">
-        <label>
-          <span>Jour</span>
-          <select id="f-day">
-            <option value="">Indifférent</option>
-            <option value="0">Lundi</option>
-            <option value="1">Mardi</option>
-            <option value="2">Mercredi</option>
-            <option value="3">Jeudi</option>
-            <option value="4">Vendredi</option>
-            <option value="5">Samedi</option>
-            <option value="6">Dimanche</option>
-          </select>
-        </label>
-        <label>
-          <span>Après</span>
-          <input id="f-after" type="time" />
-        </label>
-        <label>
-          <span>Avant</span>
-          <input id="f-before" type="time" />
-        </label>
+      <div class="hero-actions">
+        <button type="button" id="btn-geoloc" class="chip-btn">
+          <span aria-hidden="true">📍</span> Près de moi
+        </button>
+        <button type="button" id="btn-open-filters" class="chip-btn">
+          <span aria-hidden="true">⚙️</span> Filtres
+          <span id="active-filters-count" class="chip-count hidden">0</span>
+        </button>
+        <button type="button" id="btn-reset" class="chip-btn chip-btn-muted">
+          <span aria-hidden="true">⟲</span> Effacer
+        </button>
       </div>
+    </div>
+  </section>
 
-      <fieldset class="geo">
-        <legend>Autour de moi</legend>
-        <button type="button" id="btn-geoloc">📍 Me géolocaliser</button>
+  <!-- Results -->
+  <main class="results-shell">
+    <div class="results-header">
+      <h2 id="results-title" class="results-title">
+        <span id="results-count">—</span>
+        <span class="results-label">résultats</span>
+      </h2>
+      <div class="view-toggle">
+        <button type="button" data-view="list" class="active">
+          <span aria-hidden="true">▤</span> Liste
+        </button>
+        <button type="button" data-view="map">
+          <span aria-hidden="true">🗺</span> Carte
+        </button>
+      </div>
+    </div>
+
+    <div id="loading-state" class="state-card hidden">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <p>Recherche…</p>
+    </div>
+
+    <div id="empty-state" class="state-card hidden">
+      <div class="state-emoji">🕊️</div>
+      <h3>Aucun lieu ne correspond</h3>
+      <p>Essaie d'élargir le rayon, retire des filtres ou saisis une autre ville.</p>
+    </div>
+
+    <div id="error-state" class="state-card hidden">
+      <div class="state-emoji">✕</div>
+      <h3>API injoignable</h3>
+      <p id="error-message"></p>
+    </div>
+
+    <div id="list-view" class="list-view"></div>
+    <div id="map-view" class="map-view hidden"></div>
+  </main>
+
+  <!-- Filters slide-over -->
+  <aside id="filter-panel" class="filter-panel hidden">
+    <header class="filter-header">
+      <h2>Filtres</h2>
+      <button type="button" id="btn-close-filters" class="modal-close" aria-label="Fermer">&times;</button>
+    </header>
+
+    <div class="filter-body">
+      <section class="filter-section">
+        <h3>Lieu</h3>
         <div class="row">
-          <label><span>Lat</span><input id="f-lat" type="number" step="0.0001" /></label>
-          <label><span>Lon</span><input id="f-lon" type="number" step="0.0001" /></label>
-          <label><span>Rayon (km)</span><input id="f-radius" type="number" min="1" max="200" value="10" /></label>
+          <label>
+            <span>Ville</span>
+            <input id="f-city" type="text" placeholder="Versailles" />
+          </label>
+          <label>
+            <span>Code postal</span>
+            <input id="f-postal" type="text" placeholder="78000" />
+          </label>
         </div>
-      </fieldset>
+        <div class="row">
+          <label>
+            <span>Latitude</span>
+            <input id="f-lat" type="number" step="0.0001" />
+          </label>
+          <label>
+            <span>Longitude</span>
+            <input id="f-lon" type="number" step="0.0001" />
+          </label>
+          <label>
+            <span>Rayon (km)</span>
+            <input id="f-radius" type="number" min="1" max="200" value="10" />
+          </label>
+        </div>
+      </section>
 
-      <div class="actions">
-        <button type="button" id="btn-search" class="primary">Rechercher</button>
-        <button type="button" id="btn-reset">Effacer</button>
-      </div>
+      <section class="filter-section">
+        <h3>Type de lieu</h3>
+        <div id="f-church-types" class="chips"></div>
+      </section>
 
-      <details class="ingest">
-        <summary>⚙️ Collecter de nouvelles données</summary>
+      <section class="filter-section">
+        <h3>Type de célébration</h3>
+        <div id="f-celebration-types" class="chips"></div>
+      </section>
+
+      <section class="filter-section">
+        <h3>Communauté</h3>
+        <div id="f-communities" class="chips"></div>
+      </section>
+
+      <section class="filter-section">
+        <h3>Rite</h3>
+        <div id="f-rites" class="chips"></div>
+      </section>
+
+      <section class="filter-section">
+        <h3>Quand</h3>
+        <div class="row">
+          <label>
+            <span>Jour</span>
+            <select id="f-day">
+              <option value="">Indifférent</option>
+              <option value="0">Lundi</option>
+              <option value="1">Mardi</option>
+              <option value="2">Mercredi</option>
+              <option value="3">Jeudi</option>
+              <option value="4">Vendredi</option>
+              <option value="5">Samedi</option>
+              <option value="6">Dimanche</option>
+            </select>
+          </label>
+          <label><span>Après</span><input id="f-after" type="time" /></label>
+          <label><span>Avant</span><input id="f-before" type="time" /></label>
+        </div>
+      </section>
+
+      <details class="filter-section ingest">
+        <summary>⚙️ Importer de nouvelles données</summary>
         <p class="hint">
-          1. <strong>Lieux dans la zone</strong> via OpenStreetMap (gratuit, sans clé) — crée les fiches.<br />
-          2. <strong>URL d'une paroisse</strong> — extrait les horaires depuis son site web.
+          1. <strong>Lieux dans la zone</strong> via OpenStreetMap (renseigne lat/lon ci-dessus).<br />
+          2. <strong>URL d'une paroisse</strong> — extrait les horaires de son site.
         </p>
         <div class="row">
-          <button type="button" id="btn-ingest-area">🗺️ Importer les lieux (OSM)</button>
+          <button type="button" id="btn-ingest-area" class="btn btn-secondary">🗺 Importer les lieux (OSM)</button>
         </div>
         <label>
           <span>URL d'une page paroisse / monastère</span>
           <input id="ingest-url" type="url" placeholder="https://www.exemple-paroisse.fr/horaires" />
         </label>
-        <button type="button" id="btn-ingest-url">Extraire les horaires</button>
+        <button type="button" id="btn-ingest-url" class="btn btn-secondary">Extraire les horaires</button>
         <pre id="ingest-output" class="ingest-output"></pre>
       </details>
-    </aside>
+    </div>
 
-    <section class="results">
-      <div class="results-header">
-        <h2 id="results-title">Résultats</h2>
-        <div class="view-toggle">
-          <button type="button" data-view="list" class="active">Liste</button>
-          <button type="button" data-view="map">Carte</button>
-        </div>
-      </div>
-      <div id="list-view" class="list-view"></div>
-      <div id="map-view" class="map-view hidden"></div>
-    </section>
-  </main>
+    <footer class="filter-footer">
+      <button type="button" id="btn-close-filters-2" class="btn btn-ghost">Fermer</button>
+      <button type="button" id="btn-apply-filters" class="btn btn-primary">Appliquer</button>
+    </footer>
+  </aside>
+  <div id="filter-backdrop" class="backdrop hidden"></div>
 
   <template id="church-card">
     <article class="card">
-      <header>
+      <header class="card-header">
         <h3 class="name"></h3>
         <span class="badge type"></span>
       </header>
       <p class="meta"></p>
       <ul class="celebrations"></ul>
-      <footer>
+      <footer class="card-footer">
         <a class="website" target="_blank" rel="noopener">Site web ↗</a>
         <span class="distance"></span>
       </footer>

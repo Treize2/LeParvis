@@ -65,6 +65,9 @@ function renderChips(containerId, items, key) {
         set.add(item.value);
         chip.classList.add("active");
       }
+      if (typeof updateActiveFiltersCount === "function") {
+        updateActiveFiltersCount();
+      }
     });
     container.appendChild(chip);
   }
@@ -114,14 +117,32 @@ function buildQuery() {
 }
 
 async function runSearch() {
-  el("#results-title").textContent = "Recherche…";
+  showState("loading");
   try {
     const params = buildQuery();
     const data = await api("/api/search?" + params.toString());
     state.results = data;
     renderResults();
   } catch (err) {
-    el("#results-title").textContent = "Erreur — " + err.message;
+    showState("error", err.message);
+  }
+}
+
+// ---------- UI states ----------------------------------------------------
+
+function showState(kind, message = "") {
+  // Hide content, show the right state card.
+  el("#list-view").classList.add("hidden");
+  el("#map-view").classList.add("hidden");
+  for (const s of ["loading", "empty", "error"]) {
+    el(`#${s}-state`).classList.toggle("hidden", s !== kind);
+  }
+  if (kind === "error") el("#error-message").textContent = message;
+}
+
+function hideStates() {
+  for (const s of ["loading", "empty", "error"]) {
+    el(`#${s}-state`).classList.add("hidden");
   }
 }
 
@@ -148,18 +169,24 @@ function formatTime(t) {
 }
 
 function renderResults() {
-  el("#results-title").textContent = `Résultats (${state.results.total})`;
+  el("#results-count").textContent = state.results.total;
+  hideStates();
+  if (!state.results.items.length) {
+    showState("empty");
+    return;
+  }
+  // Show whichever view is active in the toggle.
+  const activeView = el(".view-toggle button.active")?.dataset.view || "list";
+  el("#list-view").classList.toggle("hidden", activeView !== "list");
+  el("#map-view").classList.toggle("hidden", activeView !== "map");
   renderList();
   renderMap();
+  if (activeView === "map") setTimeout(() => state.map?.invalidateSize(), 80);
 }
 
 function renderList() {
   const list = el("#list-view");
   list.innerHTML = "";
-  if (!state.results.items.length) {
-    list.innerHTML = "<p style='color:#5a4a3c'>Aucun lieu ne correspond à ces filtres.</p>";
-    return;
-  }
   const tpl = el("#church-card");
   for (const item of state.results.items) {
     const node = tpl.content.cloneNode(true);
@@ -289,13 +316,58 @@ el("#btn-geoloc").addEventListener("click", () => {
 // ---------- Reset / search -----------------------------------------------
 
 el("#btn-search").addEventListener("click", runSearch);
+el("#f-query").addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(); });
 el("#btn-reset").addEventListener("click", () => {
-  els("input").forEach((i) => (i.value = ""));
+  els("input[id^='f-']").forEach((i) => { if (i.id !== "f-radius") i.value = ""; });
   el("#f-day").value = "";
   el("#f-radius").value = "10";
   for (const set of Object.values(state.filters)) set.clear();
   els(".chip.active").forEach((c) => c.classList.remove("active"));
+  updateActiveFiltersCount();
   runSearch();
+});
+
+// ---------- Filter slide-over ----------------------------------------------
+
+function openFilters() {
+  el("#filter-panel").classList.remove("hidden");
+  el("#filter-backdrop").classList.remove("hidden");
+}
+function closeFilters() {
+  el("#filter-panel").classList.add("hidden");
+  el("#filter-backdrop").classList.add("hidden");
+}
+el("#btn-open-filters").addEventListener("click", openFilters);
+el("#btn-close-filters").addEventListener("click", closeFilters);
+el("#btn-close-filters-2").addEventListener("click", closeFilters);
+el("#filter-backdrop").addEventListener("click", closeFilters);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeFilters();
+});
+el("#btn-apply-filters").addEventListener("click", () => {
+  closeFilters();
+  updateActiveFiltersCount();
+  runSearch();
+});
+
+function updateActiveFiltersCount() {
+  let n = 0;
+  for (const set of Object.values(state.filters)) n += set.size;
+  for (const id of ["f-city", "f-postal", "f-day", "f-after", "f-before", "f-lat", "f-lon"]) {
+    if (el("#" + id).value) n += 1;
+  }
+  const badge = el("#active-filters-count");
+  if (n === 0) {
+    badge.classList.add("hidden");
+  } else {
+    badge.classList.remove("hidden");
+    badge.textContent = n;
+  }
+}
+
+// Recount active filters whenever a filter input changes.
+els("#filter-panel input, #filter-panel select").forEach((input) => {
+  input.addEventListener("change", updateActiveFiltersCount);
 });
 
 // ---------- Ingestion ----------------------------------------------------
