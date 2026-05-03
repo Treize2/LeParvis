@@ -21,6 +21,9 @@ services:
       LEPARVIS_DATABASE_URL: sqlite:////app/data/leparvis.db
       LEPARVIS_CORS_ORIGINS: '["https://${DOMAIN_NAME:-leparvis.dauchez.me}"]'
       LEPARVIS_SCRAPER_USER_AGENT: ${SCRAPER_USER_AGENT:-LeParvisBot/0.1 (+contact@dauchez.me)}
+      # Admin: empty string disables the /api/admin/* endpoints (503).
+      # Set LEPARVIS_ADMIN_TOKEN in the host .env to enable them.
+      LEPARVIS_ADMIN_TOKEN: ${LEPARVIS_ADMIN_TOKEN:-}
     volumes:
       - api_data:/app/data
     networks:

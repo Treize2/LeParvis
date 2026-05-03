@@ -67,7 +67,28 @@ Une seule fois, dans la console Scaleway :
 
 Le premier `git push origin main` les remplira via la pipeline.
 
-## 6. Initialiser le volume SQLite et amorcer la base
+## 6. Activer la console d'administration
+
+```bash
+cd "$HOME/LeParvis"
+TOKEN=$(openssl rand -hex 24)
+echo "LEPARVIS_ADMIN_TOKEN=$TOKEN" >> .env
+echo "Token admin : $TOKEN"        # à conserver précieusement
+```
+
+> Le `docker-compose.yml` propage déjà cette variable au container API.
+> Pour qu'elle soit prise en compte, il faut redémarrer le service :
+> ```bash
+> docker compose up -d api
+> ```
+> Vérification rapide :
+> ```bash
+> curl -X POST -H "Authorization: Bearer $TOKEN" \
+>   http://localhost:8000/api/admin/login    # → {"status":"ok"}
+> ```
+> Sans token sur le `.env`, le endpoint renvoie 503 (admin désactivé).
+
+## 7. Initialiser le volume SQLite et amorcer la base
 
 ```bash
 cd "$HOME/LeParvis"
@@ -75,7 +96,7 @@ docker compose pull api          # tire la dernière image
 docker compose run --rm api python -m app.seed
 ```
 
-## 7. Brancher le vhost dans le Caddy taskrabbit
+## 8. Brancher le vhost dans le Caddy taskrabbit
 
 Copier le contenu de `deploy/Caddyfile.snippet` dans le Caddyfile que
 taskrabbit utilise (ou un fichier `*.caddy` qu'il importe), puis recharger :
@@ -92,7 +113,7 @@ Vérifier la résolution DNS :
 dig +short leparvis.dauchez.me      # doit pointer sur l'IP de l'instance
 ```
 
-## 8. Premier déploiement
+## 9. Premier déploiement
 
 Push sur `main` (ou merge automatique via le workflow `auto-merge`) →
 le workflow `ci` tourne → s'il est vert, `deploy` se déclenche, build + push
@@ -105,7 +126,7 @@ curl -fsSL https://leparvis.dauchez.me/health     # {"status":"ok"}
 curl -fsSL https://leparvis.dauchez.me/api/meta/taxonomy | head
 ```
 
-## 9. Diagnostic en cas de problème
+## 10. Diagnostic en cas de problème
 
 Sur l'instance :
 
@@ -123,7 +144,7 @@ Côté Caddy taskrabbit :
 docker compose -f $HOME/TaskRabbit/docker-compose.yml logs edge --tail 50
 ```
 
-## 10. Désinstallation propre
+## 11. Désinstallation propre
 
 ```bash
 cd "$HOME/LeParvis"
