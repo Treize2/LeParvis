@@ -31,6 +31,10 @@ LeParvis/
 │   ├── index.html
 │   ├── app.js
 │   └── styles.css
+├── mobile/                   # App Expo / React Native (iOS + Android)
+│   ├── app/                  # routes (expo-router)
+│   ├── src/                  # api, types, hooks, components, theme
+│   └── README.md             # build EAS, comptes Apple/Google requis
 ├── docker-compose.yml
 └── README.md
 ```

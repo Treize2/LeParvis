@@ -78,6 +78,32 @@ jobs:
           node --check app.js
           grep -q 'id="api-base"' index.html
 
+  mobile:
+    name: Mobile — typecheck & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test -- --ci --reporters=default
+
   secret-scan:
     name: gitleaks secret scan
     runs-on: ubuntu-latest

@@ -1,0 +1,19 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Native
+ios/
+android/
+
+# EAS
+.eas/
