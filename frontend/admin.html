@@ -4,101 +4,305 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LeParvis · Admin</title>
-  <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="admin.css" />
 </head>
-<body class="admin">
-  <header class="topbar">
-    <div class="brand">
-      <h1>LeParvis · Admin</h1>
-      <span class="tagline">Console de modération des paroisses et célébrations</span>
-    </div>
-    <div class="api-config">
-      <label>API
-        <input id="api-base" type="text" placeholder="(vide = même origine)" />
+<body>
+
+  <!-- ============= LOGIN ============= -->
+  <div id="login-view" class="login-screen">
+    <div class="login-card">
+      <h1 class="brand">LeParvis</h1>
+      <p class="subtitle">Console d'administration</p>
+      <label>
+        <span>Token administrateur</span>
+        <input id="admin-token" type="password" autocomplete="current-password"
+               placeholder="••••••••••••••••" />
       </label>
-      <button type="button" id="btn-logout" class="hidden">Déconnexion</button>
+      <button type="button" id="btn-login" class="btn btn-primary btn-block">
+        Se connecter
+      </button>
+      <p id="login-error" class="error-message hidden"></p>
+      <p class="hint">
+        Le token est défini par <code>LEPARVIS_ADMIN_TOKEN</code> sur le serveur.
+      </p>
     </div>
-  </header>
+  </div>
 
-  <main class="admin-layout">
-    <!-- Login screen -->
-    <section id="login-view">
-      <div class="login-card">
-        <h2>Authentification</h2>
-        <p class="hint">
-          Saisis le jeton défini dans <code>LEPARVIS_ADMIN_TOKEN</code> côté serveur.
-        </p>
-        <label>
-          <span>Token</span>
-          <input id="admin-token" type="password" autocomplete="current-password" />
-        </label>
-        <button type="button" id="btn-login" class="primary">Connexion</button>
-        <p id="login-error" class="error hidden"></p>
+  <!-- ============= APP ============= -->
+  <div id="app-view" class="app hidden">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="brand-block">
+        <span class="brand-mark">⛪</span>
+        <div>
+          <h1>LeParvis</h1>
+          <span class="muted">Console d'administration</span>
+        </div>
       </div>
-    </section>
+      <div class="topbar-actions">
+        <span id="api-base-display" class="api-pill" title="URL de l'API"></span>
+        <button type="button" id="btn-logout" class="btn btn-ghost">Déconnexion</button>
+      </div>
+    </header>
 
-    <!-- Logged-in view -->
-    <section id="app-view" class="hidden">
-      <aside class="admin-sidebar">
-        <input id="admin-search" type="text" placeholder="Rechercher un lieu, une ville…" />
-        <div id="church-list"></div>
+    <!-- Layout -->
+    <div class="layout">
+
+      <!-- Sidebar : list of churches -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <input id="admin-search" type="text" placeholder="🔍 Rechercher…" />
+          <button type="button" id="btn-new-church" class="btn btn-ghost btn-icon"
+                  title="Nouveau lieu">+</button>
+        </div>
+        <div id="sidebar-stats" class="sidebar-stats"></div>
+        <div id="church-list" class="church-list"></div>
       </aside>
 
-      <section id="church-editor" class="church-editor">
-        <p class="placeholder">← Sélectionne un lieu pour le modifier.</p>
-      </section>
-    </section>
-  </main>
+      <!-- Main editor -->
+      <main class="editor">
+        <div id="editor-empty" class="empty-state">
+          <div class="empty-emoji">📜</div>
+          <h2>Aucun lieu sélectionné</h2>
+          <p>Choisis une paroisse dans la liste à gauche pour la modifier,<br />
+             ou crée-en une nouvelle avec le bouton <strong>+</strong>.</p>
+        </div>
 
-  <!-- Merge modal -->
+        <div id="editor-content" class="editor-content hidden">
+          <!-- Header card -->
+          <header class="church-header">
+            <div class="church-header-main">
+              <h1 id="church-name-display"></h1>
+              <p class="church-subtitle">
+                <span id="church-address-display" class="muted"></span>
+              </p>
+            </div>
+            <div class="church-header-meta">
+              <span id="church-type-badge" class="badge badge-gold"></span>
+              <span id="church-source-badge" class="badge badge-muted"></span>
+              <span id="church-celebrations-count" class="badge badge-info"></span>
+            </div>
+          </header>
+
+          <!-- Tabs -->
+          <nav class="tabs" role="tablist">
+            <button type="button" data-tab="identity" class="tab active">
+              <span class="tab-icon">🏷️</span>Identité
+            </button>
+            <button type="button" data-tab="location" class="tab">
+              <span class="tab-icon">📍</span>Localisation
+            </button>
+            <button type="button" data-tab="contact" class="tab">
+              <span class="tab-icon">📞</span>Contact
+            </button>
+            <button type="button" data-tab="celebrations" class="tab">
+              <span class="tab-icon">🕐</span>Célébrations
+              <span id="tab-celebrations-count" class="tab-count"></span>
+            </button>
+            <button type="button" data-tab="actions" class="tab">
+              <span class="tab-icon">⚙️</span>Actions
+            </button>
+          </nav>
+
+          <!-- Tab panels -->
+          <div class="tab-panels">
+
+            <!-- Identity -->
+            <section data-panel="identity" class="panel active">
+              <div class="form-grid">
+                <label class="full">
+                  <span>Nom</span>
+                  <input data-field="name" type="text" />
+                </label>
+                <label>
+                  <span>Type</span>
+                  <select data-field="type" id="field-type"></select>
+                </label>
+                <label>
+                  <span>Communauté</span>
+                  <select data-field="community" id="field-community"></select>
+                </label>
+                <label class="full">
+                  <span>Description</span>
+                  <textarea data-field="description" rows="4"></textarea>
+                </label>
+                <label class="full">
+                  <span>Image (URL)</span>
+                  <input data-field="image_url" type="url" />
+                </label>
+              </div>
+            </section>
+
+            <!-- Location -->
+            <section data-panel="location" class="panel">
+              <div class="form-grid">
+                <label class="full">
+                  <span>Adresse</span>
+                  <input data-field="address" type="text" />
+                </label>
+                <label>
+                  <span>Ville</span>
+                  <input data-field="city" type="text" />
+                </label>
+                <label>
+                  <span>Code postal</span>
+                  <input data-field="postal_code" type="text" />
+                </label>
+                <label>
+                  <span>Pays (ISO 2 lettres)</span>
+                  <input data-field="country" type="text" maxlength="2" />
+                </label>
+                <label>
+                  <span>Diocèse</span>
+                  <input data-field="diocese" type="text" />
+                </label>
+                <label>
+                  <span>Latitude</span>
+                  <input data-field="latitude" type="number" step="0.000001" />
+                </label>
+                <label>
+                  <span>Longitude</span>
+                  <input data-field="longitude" type="number" step="0.000001" />
+                </label>
+              </div>
+              <p class="hint">
+                💡 Tu peux récupérer les coordonnées en cherchant l'adresse sur
+                <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>.
+              </p>
+            </section>
+
+            <!-- Contact -->
+            <section data-panel="contact" class="panel">
+              <div class="form-grid">
+                <label class="full">
+                  <span>Site web</span>
+                  <input data-field="website" type="url" placeholder="https://…" />
+                </label>
+                <label>
+                  <span>Téléphone</span>
+                  <input data-field="phone" type="tel" />
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input data-field="email" type="email" />
+                </label>
+              </div>
+            </section>
+
+            <!-- Celebrations -->
+            <section data-panel="celebrations" class="panel">
+              <div class="celebrations-toolbar">
+                <button type="button" id="btn-add-celebration" class="btn btn-primary">
+                  + Ajouter une célébration
+                </button>
+              </div>
+              <div id="celebrations-by-day" class="celebrations-by-day"></div>
+            </section>
+
+            <!-- Actions -->
+            <section data-panel="actions" class="panel">
+              <div class="action-card">
+                <div class="action-card-text">
+                  <h3>🔄 Réimporter les horaires</h3>
+                  <p>Lance le scraper sur le site web déclaré et fusionne les célébrations trouvées.</p>
+                </div>
+                <button type="button" id="btn-reimport" class="btn btn-gold">Réimporter</button>
+              </div>
+
+              <div class="action-card">
+                <div class="action-card-text">
+                  <h3>🔍 Diagnostiquer (preview)</h3>
+                  <p>Affiche ce que le scraper voit sur le site web, sans rien écrire en base.</p>
+                </div>
+                <button type="button" id="btn-preview" class="btn btn-secondary">Diagnostiquer</button>
+              </div>
+
+              <div class="action-card">
+                <div class="action-card-text">
+                  <h3>🔗 Fusionner avec un autre lieu</h3>
+                  <p>Déplace les célébrations vers une autre fiche et supprime celle-ci.</p>
+                </div>
+                <button type="button" id="btn-merge" class="btn btn-secondary">Fusionner</button>
+              </div>
+
+              <div class="danger-zone">
+                <h3>⚠️ Zone dangereuse</h3>
+                <div class="action-card">
+                  <div class="action-card-text">
+                    <h4>Supprimer définitivement ce lieu</h4>
+                    <p>Cette action supprime aussi toutes ses célébrations. Irréversible.</p>
+                  </div>
+                  <button type="button" id="btn-delete" class="btn btn-danger">Supprimer</button>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          <!-- Sticky save bar -->
+          <div id="save-bar" class="save-bar hidden">
+            <span class="save-bar-status">
+              <span class="dot"></span>
+              <span id="save-bar-text">Modifications non enregistrées</span>
+            </span>
+            <div class="save-bar-actions">
+              <button type="button" id="btn-discard" class="btn btn-ghost">Annuler</button>
+              <button type="button" id="btn-save" class="btn btn-primary">Enregistrer</button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+    </div>
+  </div>
+
+  <!-- ============= MERGE MODAL ============= -->
   <div id="merge-modal" class="modal hidden">
     <div class="modal-card">
-      <h3>Fusionner avec…</h3>
+      <header class="modal-header">
+        <h2>🔗 Fusionner avec…</h2>
+        <button type="button" class="modal-close" data-close-modal>&times;</button>
+      </header>
       <p class="hint">
-        Le lieu sélectionné <strong id="merge-source-name"></strong> sera <strong>supprimé</strong>.
-        Ses célébrations seront déplacées vers la cible.
+        <strong id="merge-source-name"></strong> sera <strong>supprimé</strong> et ses
+        célébrations déplacées vers la cible que tu sélectionnes.
       </p>
-      <input id="merge-search" type="text" placeholder="Rechercher la cible…" />
-      <div id="merge-results"></div>
+      <input id="merge-search" type="text" placeholder="Rechercher la cible…" autofocus />
+      <div id="merge-results" class="merge-results"></div>
+    </div>
+  </div>
+
+  <!-- ============= PREVIEW MODAL ============= -->
+  <div id="preview-modal" class="modal hidden">
+    <div class="modal-card modal-large">
+      <header class="modal-header">
+        <h2>🔍 Diagnostic du site</h2>
+        <button type="button" class="modal-close" data-close-modal>&times;</button>
+      </header>
+      <pre id="preview-output" class="code-block"></pre>
+    </div>
+  </div>
+
+  <!-- ============= NEW CHURCH MODAL ============= -->
+  <div id="new-church-modal" class="modal hidden">
+    <div class="modal-card">
+      <header class="modal-header">
+        <h2>+ Nouveau lieu</h2>
+        <button type="button" class="modal-close" data-close-modal>&times;</button>
+      </header>
+      <label><span>Nom *</span><input id="new-church-name" type="text" /></label>
+      <label><span>Type *</span><select id="new-church-type"></select></label>
+      <label><span>Ville</span><input id="new-church-city" type="text" /></label>
       <div class="modal-actions">
-        <button type="button" id="btn-merge-cancel">Annuler</button>
+        <button type="button" data-close-modal class="btn btn-ghost">Annuler</button>
+        <button type="button" id="btn-create-church" class="btn btn-primary">Créer</button>
       </div>
     </div>
   </div>
 
-  <template id="church-row">
-    <button type="button" class="church-row">
-      <span class="row-name"></span>
-      <span class="row-meta"></span>
-    </button>
-  </template>
-
-  <template id="celebration-row">
-    <li class="cel-row">
-      <select class="cel-day">
-        <option value="">Quotidien</option>
-        <option value="0">Lundi</option>
-        <option value="1">Mardi</option>
-        <option value="2">Mercredi</option>
-        <option value="3">Jeudi</option>
-        <option value="4">Vendredi</option>
-        <option value="5">Samedi</option>
-        <option value="6">Dimanche</option>
-      </select>
-      <input class="cel-time" type="time" />
-      <select class="cel-type"></select>
-      <select class="cel-rite">
-        <option value="ordinary">Forme ordinaire</option>
-        <option value="extraordinary">Forme extraordinaire</option>
-        <option value="byzantine">Byzantin</option>
-        <option value="dominican">Dominicain</option>
-      </select>
-      <input class="cel-lang" type="text" placeholder="lang" maxlength="3" />
-      <button type="button" class="cel-save">💾</button>
-      <button type="button" class="cel-delete">🗑</button>
-    </li>
-  </template>
+  <!-- ============= TOAST CONTAINER ============= -->
+  <div id="toast-container" class="toast-container"></div>
 
   <script src="admin.js"></script>
 </body>
