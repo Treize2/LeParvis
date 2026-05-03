@@ -88,6 +88,10 @@ class IngestUrlRequest(BaseModel):
     # of explicitly public pages (mass schedules) that the parish wants
     # discoverable but whose webmaster set a too-broad robots.txt.
     force: bool = False
+    # When True, render the page in headless Chromium before parsing.
+    # Slower (~3-8 s) but required for SPA sites like messes.info that load
+    # their schedule via XHR after page load.
+    render: bool = False
 
 
 class IngestArea(BaseModel):

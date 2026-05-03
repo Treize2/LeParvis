@@ -144,7 +144,23 @@ Côté Caddy taskrabbit :
 docker compose -f $HOME/TaskRabbit/docker-compose.yml logs edge --tail 50
 ```
 
-## 11. Désinstallation propre
+## 11. Note sur Playwright (Chromium headless)
+
+L'image API contient désormais Chromium (~400 Mo) pour rendre les pages
+SPA comme messes.info via `render=true`. Conséquences :
+
+- Premier `docker compose pull api` plus lent (image plus grosse).
+- Aucun impact si tu n'utilises pas l'option « 🌐 Rendre le JavaScript »
+  ou les sites SPA — Chromium est lancé à la demande seulement.
+- Chromium tourne en `--no-sandbox --disable-dev-shm-usage` (obligatoire
+  dans un container).
+- Si tu vois des erreurs OOM lors du rendu, augmente la RAM allouée :
+  ```yaml
+  api:
+    shm_size: '2gb'   # à ajouter dans docker-compose.yml
+  ```
+
+## 12. Désinstallation propre
 
 ```bash
 cd "$HOME/LeParvis"

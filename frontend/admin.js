@@ -519,9 +519,13 @@ async function reimport(force) {
     toast("Renseigne d'abord un site web pour ce lieu.", "error");
     return;
   }
-  toast("Réimport en cours…", "info", 2000);
+  const render = urlNeedsRendering(c.website);
+  toast(render ? "Réimport (Chromium)…" : "Réimport en cours…", "info", 2500);
   try {
-    const params = new URLSearchParams({ force: force ? "true" : "false" });
+    const params = new URLSearchParams({
+      force: force ? "true" : "false",
+      render: render ? "true" : "false",
+    });
     const report = await api(`/api/admin/churches/${state.selectedId}/reimport?${params}`, {
       method: "POST",
     });
@@ -739,15 +743,32 @@ $("#btn-import-osm").addEventListener("click", async () => {
   }
 });
 
+// `render` is auto-on for known SPA hosts (messes.info), or when the
+// 'Rendre le JS' checkbox is ticked.
+const SPA_HOSTS = ["messes.info", "www.messes.info"];
+function urlNeedsRendering(url) {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return SPA_HOSTS.some((d) => host === d || host.endsWith("." + d));
+  } catch { return false; }
+}
+function shouldRender(url) {
+  return urlNeedsRendering(url) || $("#import-url-render").checked;
+}
+
 async function importUrl(force) {
   const url = $("#import-url").value.trim();
   if (!url) { toast("Renseigne une URL.", "error"); return; }
-  setImportReport("Extraction…", "Lecture + parsing du site");
+  const render = shouldRender(url);
+  setImportReport(
+    render ? "Rendu Chromium en cours…" : "Extraction…",
+    render ? "Lecture via navigateur headless (5-8 s)" : "Lecture + parsing du site",
+  );
   try {
     const res = await fetch(state.apiBase + "/api/ingest/url", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, force: !!force }),
+      body: JSON.stringify({ url, force: !!force, render }),
     });
     const body = await res.json();
     if (res.status === 451) {
@@ -812,19 +833,24 @@ $("#btn-import-mi-preview").addEventListener("click", async () => {
 });
 
 async function previewUrlForImport(url) {
-  setImportReport("Diagnostic…", "Lecture sans écriture en base");
+  const render = shouldRender(url);
+  setImportReport(
+    render ? "Rendu Chromium…" : "Diagnostic…",
+    render ? "Lecture via navigateur headless" : "Lecture sans écriture en base",
+  );
   try {
     const data = await fetch(state.apiBase + "/api/ingest/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, force: true }),
+      body: JSON.stringify({ url, force: true, render }),
     }).then((r) => r.json());
     const found = (data.parsed_from_body || []).length;
     const jsonld = data.jsonld_events || 0;
-    setImportReport(
-      JSON.stringify(data, null, 2),
-      `${found} créneau(x) heuristiques · ${jsonld} JSON-LD · rien n'a été écrit en base`,
-    );
+    const mode = data.mode || (render ? "rendered" : "http");
+    const hints = (data.hints || []).join(" · ");
+    const summary = `${found} créneau(x) heuristiques · ${jsonld} JSON-LD · mode ${mode}`
+      + (hints ? "\n💡 " + hints : "");
+    setImportReport(JSON.stringify(data, null, 2), summary);
   } catch (err) {
     setImportReport("Erreur: " + err.message, "Échec");
   }

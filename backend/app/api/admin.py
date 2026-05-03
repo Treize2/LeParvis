@@ -181,9 +181,14 @@ def delete_celebration(celebration_id: int, db: Session = Depends(get_db)):
 async def reimport_from_website(
     church_id: int,
     force: bool = False,
+    render: bool = False,
     db: Session = Depends(get_db),
 ):
-    """Re-run the URL scraper on the church's `website` and merge results."""
+    """Re-run the URL scraper on the church's `website` and merge results.
+
+    `render=true` swaps the plain httpx client for headless Chromium —
+    use it on SPA sites (messes.info, etc.) that load schedules in JS.
+    """
     church = db.get(Church, church_id)
     if church is None:
         raise HTTPException(status_code=404, detail="Church not found")
@@ -193,9 +198,13 @@ async def reimport_from_website(
             detail="No `website` URL on this church — fill it in before reimport.",
         )
 
+    from ..scrapers.rendered_html import RenderedHtmlScraper
+
+    scraper_cls = RenderedHtmlScraper if render else ParoisseHtmlScraper
+
     pipeline = IngestionPipeline(db)
     try:
-        async with ParoisseHtmlScraper() as scraper:
+        async with scraper_cls() as scraper:
             results = list(await scraper.fetch(church.website, force=force))
         # Force every result to point to *this* church so we don't create duplicates.
         for r in results:

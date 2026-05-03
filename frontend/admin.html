@@ -369,13 +369,17 @@
             <p class="hint">
               Récupère <strong>les horaires</strong> depuis la page d'une paroisse.
               Les sites bloquant les robots peuvent être forcés via robots.txt après
-              confirmation.
+              confirmation. Pour les sites SPA (Wix, React…), active le rendu JS.
             </p>
           </div>
         </header>
         <label class="full">
           <span>URL de la page horaires</span>
           <input id="import-url" type="url" placeholder="https://exemple-paroisse.fr/horaires" />
+        </label>
+        <label class="checkbox-label">
+          <input id="import-url-render" type="checkbox" />
+          <span>🌐 Rendre le JavaScript (Chromium headless, plus lent ~5 s)</span>
         </label>
         <div class="row import-actions">
           <button type="button" id="btn-import-preview" class="btn btn-secondary">🔍 Diagnostiquer</button>
