@@ -83,6 +83,11 @@ class IngestUrlRequest(BaseModel):
     url: str
     church_id: int | None = None
     hint_type: str | None = None
+    # When True, ignore the site's robots.txt. The user takes legal /
+    # ethical responsibility — this is intended for one-off manual ingestion
+    # of explicitly public pages (mass schedules) that the parish wants
+    # discoverable but whose webmaster set a too-broad robots.txt.
+    force: bool = False
 
 
 class IngestArea(BaseModel):

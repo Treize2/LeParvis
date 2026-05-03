@@ -27,8 +27,13 @@ SCHEDULE_KEYWORDS = ["horaire", "messes", "celebrations", "office", "schedule", 
 class ParoisseHtmlScraper(Scraper):
     name = "paroisse_html"
 
-    async def fetch(self, url: str, hint_type: str | None = None) -> Iterable[ScrapeResult]:
-        if not Scraper.can_fetch(url):
+    async def fetch(
+        self,
+        url: str,
+        hint_type: str | None = None,
+        force: bool = False,
+    ) -> Iterable[ScrapeResult]:
+        if not force and not Scraper.can_fetch(url):
             raise PermissionError(f"robots.txt forbids fetching {url}")
         response = await self._get(url)
         html = response.text

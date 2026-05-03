@@ -130,6 +130,62 @@ def test_jsonld_parser_extracts_mass():
     assert events[0].confidence >= 0.8
 
 
+def test_osm_overpass_parser_extracts_church():
+    from app.scrapers.osm_overpass import OsmOverpassScraper
+
+    scraper = OsmOverpassScraper()
+    element = {
+        "type": "way",
+        "id": 12345,
+        "center": {"lat": 48.8530, "lon": 2.3499},
+        "tags": {
+            "amenity": "place_of_worship",
+            "religion": "christian",
+            "denomination": "catholic",
+            "name": "Cathédrale Notre-Dame de Paris",
+            "name:fr": "Cathédrale Notre-Dame de Paris",
+            "building": "cathedral",
+            "addr:housenumber": "6",
+            "addr:street": "Parvis Notre-Dame - Pl. Jean-Paul II",
+            "addr:city": "Paris",
+            "addr:postcode": "75004",
+            "contact:website": "https://www.notredamedeparis.fr",
+            "contact:phone": "+33 1 42 34 56 10",
+        },
+    }
+    result = scraper._parse_element(element)
+    assert result.church.name == "Cathédrale Notre-Dame de Paris"
+    assert result.church.type == "cathedral"
+    assert result.church.city == "Paris"
+    assert result.church.postal_code == "75004"
+    assert result.church.latitude == 48.8530
+    assert result.church.longitude == 2.3499
+    assert result.church.website == "https://www.notredamedeparis.fr"
+    assert result.church.external_id == "osm/way/12345"
+    assert result.church.source == "osm_overpass"
+    assert result.celebrations == []
+
+
+def test_osm_overpass_parser_falls_back_to_parish():
+    from app.scrapers.osm_overpass import OsmOverpassScraper
+
+    scraper = OsmOverpassScraper()
+    element = {
+        "type": "node",
+        "id": 999,
+        "lat": 48.0,
+        "lon": 2.0,
+        "tags": {
+            "amenity": "place_of_worship",
+            "religion": "christian",
+            "denomination": "catholic",
+            "name": "Église Saint-Exemple",
+        },
+    }
+    result = scraper._parse_element(element)
+    assert result.church.type == "parish"
+
+
 def test_heuristic_schedule_parser_french():
     from app.scrapers.parsers.time_parser import parse_schedule
 

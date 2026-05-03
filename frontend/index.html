@@ -101,15 +101,18 @@
 
       <details class="ingest">
         <summary>⚙️ Collecter de nouvelles données</summary>
-        <p class="hint">Lance le scraper messes.info ou un site paroissial.</p>
+        <p class="hint">
+          1. <strong>Lieux dans la zone</strong> via OpenStreetMap (gratuit, sans clé) — crée les fiches.<br />
+          2. <strong>URL d'une paroisse</strong> — extrait les horaires depuis son site web.
+        </p>
         <div class="row">
-          <button type="button" id="btn-ingest-area">messes.info pour la zone</button>
+          <button type="button" id="btn-ingest-area">🗺️ Importer les lieux (OSM)</button>
         </div>
         <label>
           <span>URL d'une page paroisse / monastère</span>
           <input id="ingest-url" type="url" placeholder="https://www.exemple-paroisse.fr/horaires" />
         </label>
-        <button type="button" id="btn-ingest-url">Extraire</button>
+        <button type="button" id="btn-ingest-url">Extraire les horaires</button>
         <pre id="ingest-output" class="ingest-output"></pre>
       </details>
     </aside>

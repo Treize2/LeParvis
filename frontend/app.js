@@ -308,11 +308,11 @@ el("#btn-ingest-area").addEventListener("click", async () => {
     alert("Renseigne d'abord une latitude/longitude (utilise 📍).");
     return;
   }
-  el("#ingest-output").textContent = "Extraction en cours…";
+  el("#ingest-output").textContent = "Recherche OSM en cours…";
   try {
-    const report = await api("/api/ingest/messesinfo", {
+    const report = await api("/api/ingest/osm", {
       method: "POST",
-      body: JSON.stringify({ latitude: lat, longitude: lon, radius_km: radius, limit: 25 }),
+      body: JSON.stringify({ latitude: lat, longitude: lon, radius_km: radius, limit: 100 }),
     });
     el("#ingest-output").textContent = JSON.stringify(report, null, 2);
     runSearch();
@@ -321,17 +321,46 @@ el("#btn-ingest-area").addEventListener("click", async () => {
   }
 });
 
+async function ingestUrl(url, { force = false } = {}) {
+  const res = await fetch(apiBase() + "/api/ingest/url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url, force }),
+  });
+  return { status: res.status, body: await res.json().catch(() => ({})) };
+}
+
 el("#btn-ingest-url").addEventListener("click", async () => {
   const url = el("#ingest-url").value.trim();
   if (!url) return;
   el("#ingest-output").textContent = "Analyse de la page…";
   try {
-    const report = await api("/api/ingest/url", {
-      method: "POST",
-      body: JSON.stringify({ url }),
-    });
-    el("#ingest-output").textContent = JSON.stringify(report, null, 2);
-    runSearch();
+    let { status, body } = await ingestUrl(url);
+
+    // 451 = robots.txt blocks us. Offer to retry with explicit override.
+    if (status === 451) {
+      const detail = body.detail || {};
+      const ok = window.confirm(
+        `Le site ${url} bloque les robots via robots.txt.\n\n` +
+        `Réessayer en ignorant robots.txt ?\n` +
+        `(Tu prends la responsabilité de cet appel — à utiliser uniquement ` +
+        `pour des pages d'horaires explicitement publiques.)`
+      );
+      if (!ok) {
+        el("#ingest-output").textContent =
+          "Annulé — robots.txt respecté.\n" + (detail.message || "");
+        return;
+      }
+      ({ status, body } = await ingestUrl(url, { force: true }));
+    }
+
+    if (status >= 200 && status < 300) {
+      el("#ingest-output").textContent = JSON.stringify(body, null, 2);
+      runSearch();
+    } else {
+      el("#ingest-output").textContent =
+        `Erreur ${status}: ${JSON.stringify(body, null, 2)}`;
+    }
   } catch (err) {
     el("#ingest-output").textContent = "Erreur: " + err.message;
   }
