@@ -780,6 +780,38 @@ $("#btn-import-url").addEventListener("click", () => importUrl(false));
 $("#btn-import-preview").addEventListener("click", async () => {
   const url = $("#import-url").value.trim();
   if (!url) { toast("Renseigne une URL.", "error"); return; }
+  await previewUrlForImport(url);
+});
+
+// ----- messes.info shortcut --------------------------------------------
+
+function buildMessesInfoUrl() {
+  const loc = $("#import-mi-location").value.trim();
+  if (!loc) {
+    toast("Renseigne une ville ou un code postal.", "error");
+    return null;
+  }
+  // messes.info uses /horaires/<slug> — encode for spaces / accents.
+  const slug = encodeURIComponent(loc);
+  return `https://messes.info/horaires/${slug}`;
+}
+
+$("#btn-import-mi").addEventListener("click", () => {
+  const url = buildMessesInfoUrl();
+  if (!url) return;
+  $("#import-url").value = url;        // for visibility / re-diagnosis
+  toast(`Cible : ${url}`, "info", 2500);
+  importUrl(false);
+});
+
+$("#btn-import-mi-preview").addEventListener("click", async () => {
+  const url = buildMessesInfoUrl();
+  if (!url) return;
+  $("#import-url").value = url;
+  await previewUrlForImport(url);
+});
+
+async function previewUrlForImport(url) {
   setImportReport("Diagnostic…", "Lecture sans écriture en base");
   try {
     const data = await fetch(state.apiBase + "/api/ingest/preview", {
@@ -788,12 +820,15 @@ $("#btn-import-preview").addEventListener("click", async () => {
       body: JSON.stringify({ url, force: true }),
     }).then((r) => r.json());
     const found = (data.parsed_from_body || []).length;
-    setImportReport(JSON.stringify(data, null, 2),
-      `${found} créneau(x) détecté(s) — rien n'a été écrit en base`);
+    const jsonld = data.jsonld_events || 0;
+    setImportReport(
+      JSON.stringify(data, null, 2),
+      `${found} créneau(x) heuristiques · ${jsonld} JSON-LD · rien n'a été écrit en base`,
+    );
   } catch (err) {
     setImportReport("Erreur: " + err.message, "Échec");
   }
-});
+}
 
 // Close import on Escape
 document.addEventListener("keydown", (e) => {

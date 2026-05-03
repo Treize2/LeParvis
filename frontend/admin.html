@@ -341,6 +341,30 @@
         <header class="import-section-head">
           <span class="import-step">2</span>
           <div>
+            <h3>Depuis messes.info</h3>
+            <p class="hint">
+              Renseigne une ville ou un code postal — on construit l'URL
+              <code>messes.info/horaires/&lt;valeur&gt;</code> et on lance le scraper.
+              <strong>Note&nbsp;:</strong> messes.info charge ses horaires en
+              JavaScript (GWT-RPC) ; selon les pages, le SSR peut ne pas exposer
+              les créneaux. Utilise « Diagnostiquer » avant pour vérifier.
+            </p>
+          </div>
+        </header>
+        <label class="full">
+          <span>Ville ou code postal</span>
+          <input id="import-mi-location" type="text" placeholder="Paris, Versailles, 75004…" />
+        </label>
+        <div class="row import-actions">
+          <button type="button" id="btn-import-mi-preview" class="btn btn-secondary">🔍 Diagnostiquer</button>
+          <button type="button" id="btn-import-mi" class="btn btn-primary">📥 Importer depuis messes.info</button>
+        </div>
+      </section>
+
+      <section class="import-section">
+        <header class="import-section-head">
+          <span class="import-step">3</span>
+          <div>
             <h3>Une paroisse via son site web</h3>
             <p class="hint">
               Récupère <strong>les horaires</strong> depuis la page d'une paroisse.
@@ -361,7 +385,7 @@
 
       <section class="import-result">
         <header class="import-section-head">
-          <span class="import-step">📊</span>
+          <span class="import-step">4</span>
           <div>
             <h3>Rapport</h3>
             <p class="hint" id="import-report-hint">Aucune action lancée pour l'instant.</p>
