@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeParvis · Détail</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="church.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand-block" href="/" style="text-decoration:none">
+      <span class="brand-mark">⛪</span>
+      <span class="brand-name">LeParvis</span>
+    </a>
+    <nav class="topbar-nav">
+      <a href="/" class="link-muted">← Retour à la recherche</a>
+      <a href="/admin.html" class="link-muted">Admin</a>
+    </nav>
+  </header>
+
+  <!-- Hidden API-base input so app.js + church.js share the same logic -->
+  <input id="api-base" type="hidden" />
+
+  <main class="detail-shell">
+
+    <!-- Loading -->
+    <div id="loading-state" class="state-card">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <p>Chargement…</p>
+    </div>
+
+    <!-- Error -->
+    <div id="error-state" class="state-card hidden">
+      <div class="state-emoji">✕</div>
+      <h3>Lieu introuvable</h3>
+      <p id="error-message"></p>
+      <a href="/" class="btn btn-primary" style="margin-top:16px;display:inline-flex">Retour à la recherche</a>
+    </div>
+
+    <!-- Detail content -->
+    <article id="detail-content" class="hidden">
+
+      <!-- Hero -->
+      <header class="detail-hero">
+        <div class="detail-hero-text">
+          <span id="church-type-badge" class="badge"></span>
+          <h1 id="church-name"></h1>
+          <p id="church-subtitle" class="detail-subtitle"></p>
+        </div>
+        <div id="hero-stats" class="hero-stats"></div>
+      </header>
+
+      <!-- Description (only shown if present) -->
+      <section id="description-section" class="detail-card hidden">
+        <p id="description-text"></p>
+      </section>
+
+      <!-- Two-column: contacts + map -->
+      <div class="detail-grid">
+        <section class="detail-card contact-card">
+          <h2>Coordonnées</h2>
+          <ul id="contact-list" class="contact-list"></ul>
+        </section>
+
+        <section id="map-card" class="detail-card map-card hidden">
+          <div id="mini-map" class="mini-map"></div>
+        </section>
+      </div>
+
+      <!-- Celebrations -->
+      <section class="detail-card schedule-card">
+        <header class="schedule-header">
+          <h2>Horaires des célébrations</h2>
+          <span id="celebrations-count" class="muted-pill"></span>
+        </header>
+        <div id="celebrations-by-day" class="schedule-groups"></div>
+        <p id="no-celebrations" class="empty-line hidden">
+          🕐 Pas d'horaire enregistré pour ce lieu.
+        </p>
+      </section>
+
+      <!-- Source / provenance footer -->
+      <footer id="source-footer" class="source-footer hidden">
+        <span class="muted">Source des données :</span>
+        <span id="source-text"></span>
+      </footer>
+    </article>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="church.js"></script>
+</body>
+</html>

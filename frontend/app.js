@@ -242,6 +242,24 @@ function renderList() {
     if (item.distance_km != null) {
       node.querySelector(".distance").textContent = `${item.distance_km} km`;
     }
+
+    // Make the whole card a link to the detail page, except for the
+    // explicit website link which keeps its native external behavior.
+    const card = node.querySelector(".card");
+    card.dataset.churchId = c.id;
+    card.style.cursor = "pointer";
+    card.tabIndex = 0;
+    card.addEventListener("click", (e) => {
+      if (e.target.closest(".website")) return;
+      window.location.href = `church.html?id=${c.id}`;
+    });
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        window.location.href = `church.html?id=${c.id}`;
+      }
+    });
+
     list.appendChild(node);
   }
 }
@@ -270,10 +288,11 @@ function renderMap() {
       })
       .join("");
     marker.bindPopup(
-      `<strong>${c.name}</strong><br>${churchTypeLabel(c.type)}<br>` +
+      `<a href="church.html?id=${c.id}" style="font-weight:600;color:#8b1a1a;text-decoration:none">${c.name}</a>` +
+      `<br><em style="color:#8a7a6b">${churchTypeLabel(c.type)}</em><br>` +
       [c.address, c.city].filter(Boolean).join(", ") +
       `<ul style="padding-left: 18px; margin: 6px 0">${cels}</ul>` +
-      (c.website ? `<a href="${c.website}" target="_blank" rel="noopener">Site ↗</a>` : "")
+      `<a href="church.html?id=${c.id}" style="color:#8b1a1a">Voir la fiche →</a>`
     );
     state.markersLayer.addLayer(marker);
     points.push([c.latitude, c.longitude]);
