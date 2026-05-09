@@ -122,6 +122,9 @@ function renderDetail(c) {
   // Celebrations
   renderCelebrations(c.celebrations);
 
+  // Bottom-nav quick actions (mobile)
+  hydrateBottomNav(c);
+
   // Source footer
   if (c.source) {
     $("#source-footer").classList.remove("hidden");
@@ -294,4 +297,43 @@ function buildRow(cel) {
 function formatTime(t) {
   if (!t) return "—";
   return t.slice(0, 5).replace(":", "h");
+}
+
+// =========================================================================
+// Bottom-nav (mobile) — wire context actions
+// =========================================================================
+
+function hydrateBottomNav(c) {
+  // Maps
+  const mapsBtn = $("#nav-maps");
+  if (c.latitude != null && c.longitude != null) {
+    mapsBtn.href = `https://www.openstreetmap.org/?mlat=${c.latitude}&mlon=${c.longitude}#map=17/${c.latitude}/${c.longitude}`;
+    mapsBtn.classList.remove("disabled");
+  } else if (c.address || c.city) {
+    const q = encodeURIComponent([c.address, c.postal_code, c.city].filter(Boolean).join(", "));
+    mapsBtn.href = `https://www.openstreetmap.org/search?query=${q}`;
+    mapsBtn.classList.remove("disabled");
+  }
+
+  // Call
+  const callBtn = $("#nav-call");
+  if (c.phone) {
+    callBtn.href = `tel:${c.phone.replace(/\s+/g, "")}`;
+    callBtn.classList.remove("disabled");
+  }
+
+  // Website
+  const webBtn = $("#nav-website");
+  if (c.website) {
+    webBtn.href = c.website;
+    webBtn.classList.remove("disabled");
+  }
+
+  // Calendar (.ics) — link to the first celebration if any
+  const icsBtn = $("#nav-ics");
+  if (c.celebrations && c.celebrations.length) {
+    const first = c.celebrations[0];
+    icsBtn.href = `${apiBase}/api/celebrations/${first.id}/ics`;
+    icsBtn.classList.remove("disabled");
+  }
 }

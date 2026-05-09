@@ -94,5 +94,31 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="church.js"></script>
+
+  <!-- Bottom navigation — mobile only, with context actions -->
+  <nav class="bottom-nav" aria-label="Actions">
+    <div class="bottom-nav-inner">
+      <a href="/" class="bottom-nav-item">
+        <span class="icon">←</span>
+        <span class="label">Retour</span>
+      </a>
+      <a href="#" id="nav-maps" class="bottom-nav-item disabled" target="_blank" rel="noopener">
+        <span class="icon">🗺</span>
+        <span class="label">Itinéraire</span>
+      </a>
+      <a href="#" id="nav-call" class="bottom-nav-item disabled">
+        <span class="icon">📞</span>
+        <span class="label">Appeler</span>
+      </a>
+      <a href="#" id="nav-website" class="bottom-nav-item disabled" target="_blank" rel="noopener">
+        <span class="icon">🌐</span>
+        <span class="label">Site</span>
+      </a>
+      <a href="#" id="nav-ics" class="bottom-nav-item disabled" download>
+        <span class="icon">📅</span>
+        <span class="label">Calendrier</span>
+      </a>
+    </div>
+  </nav>
 </body>
 </html>

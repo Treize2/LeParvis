@@ -1012,18 +1012,75 @@ code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
   to { opacity: 1; transform: translateX(0); }
 }
 
+.back-to-list {
+  display: none;          /* desktop: hidden, sidebar always visible */
+  align-self: flex-start;
+  margin-bottom: 8px;
+}
+
 /* =========================================================================
    Responsive
    ========================================================================= */
 
-@media (max-width: 720px) {
-  .layout { grid-template-columns: 1fr; }
-  .sidebar { max-height: 40vh; }
-  .form-grid { grid-template-columns: 1fr; }
-  .church-header { flex-direction: column; align-items: flex-start; }
+@media (max-width: 768px) {
+  /* Single-column layout: list OR editor, controlled via .editor-open class */
+  .layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    max-height: none;
+  }
+  /* When editor is open on mobile, hide the sidebar so the editor gets the
+     full screen — the back button restores the list. */
+  .layout.editor-open .sidebar { display: none; }
+  .layout:not(.editor-open) .editor { display: none; }
+
+  .back-to-list { display: inline-flex; }
+
+  .form-grid { grid-template-columns: 1fr; padding: 16px; gap: 10px; }
+  .church-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 14px 16px;
+  }
+  .church-header h1 { font-size: 22px; }
   .church-header-meta { flex-direction: row; align-items: center; align-self: flex-start; }
-  .tabs { overflow-x: auto; flex-wrap: nowrap; }
-  .tab { flex: none; }
-  .celebration-row { grid-template-columns: 70px 1fr auto; }
-  .celebration-row .cel-actions { grid-column: 1 / -1; justify-content: flex-end; }
+
+  .tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab { flex: 0 0 auto; padding: 10px 14px; font-size: 12px; }
+
+  .celebration-row {
+    grid-template-columns: 80px 1fr;
+    grid-template-rows: auto auto;
+    gap: 8px 10px;
+  }
+  .celebration-row .cel-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+  .editor-content { padding: 16px; padding-bottom: 100px; }
+  .save-bar {
+    left: 8px;
+    right: 8px;
+    transform: none;
+    bottom: 8px;
+    border-radius: var(--radius);
+  }
+  .topbar { padding: 10px 14px; }
+  .api-pill { display: none; }
+  /* Import slide-over takes more of the screen on mobile */
+  .import-panel { width: 100vw; }
+}
+
+@media (max-width: 480px) {
+  .modal-card { padding: 16px 18px; }
+  .login-card { padding: 28px 22px; }
+  .topbar h1 { font-size: 18px; }
 }

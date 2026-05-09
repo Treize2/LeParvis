@@ -457,6 +457,30 @@ el("#btn-ingest-url").addEventListener("click", async () => {
   }
 });
 
+// ---------- Bottom nav (mobile) ------------------------------------------
+
+els(".bottom-nav-item").forEach((btn) => {
+  if (btn.tagName === "A") return; // anchor items navigate natively
+  btn.addEventListener("click", () => {
+    const action = btn.dataset.nav;
+    setActiveBottomNav(btn);
+    if (action === "filters") {
+      openFilters();
+    } else if (action === "geoloc") {
+      el("#btn-geoloc").click();
+    } else if (action === "map") {
+      // Switch to map view via the existing toggle.
+      const mapToggle = els(".view-toggle button").find(b => b.dataset.view === "map");
+      if (mapToggle) mapToggle.click();
+    }
+  });
+});
+
+function setActiveBottomNav(btn) {
+  els(".bottom-nav-item").forEach((b) => b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
 // ---------- Boot ---------------------------------------------------------
 
 (async function init() {

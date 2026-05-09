@@ -280,6 +280,13 @@
 
 .muted { color: var(--ink-muted); }
 
+/* ---- Bottom nav refinements (only relevant on mobile, hidden via base CSS) */
+
+.bottom-nav-item.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 /* ---- Responsive ---------------------------------------------------------- */
 
 @media (max-width: 720px) {

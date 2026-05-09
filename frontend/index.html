@@ -216,5 +216,31 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="app.js"></script>
+
+  <!-- Bottom navigation — mobile only, hidden on desktop via CSS -->
+  <nav class="bottom-nav" aria-label="Navigation principale">
+    <div class="bottom-nav-inner">
+      <a href="/" class="bottom-nav-item active" data-nav="search">
+        <span class="icon">🔍</span>
+        <span class="label">Rechercher</span>
+      </a>
+      <button type="button" class="bottom-nav-item" data-nav="map">
+        <span class="icon">🗺</span>
+        <span class="label">Carte</span>
+      </button>
+      <button type="button" class="bottom-nav-item" data-nav="geoloc">
+        <span class="icon">📍</span>
+        <span class="label">Près</span>
+      </button>
+      <button type="button" class="bottom-nav-item" data-nav="filters">
+        <span class="icon">⚙️</span>
+        <span class="label">Filtres</span>
+      </button>
+      <a href="/admin.html" class="bottom-nav-item" data-nav="admin">
+        <span class="icon">👤</span>
+        <span class="label">Admin</span>
+      </a>
+    </div>
+  </nav>
 </body>
 </html>

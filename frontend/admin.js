@@ -211,7 +211,17 @@ async function selectChurch(id) {
   setActiveTab("identity");
   $("#editor-empty").classList.add("hidden");
   $("#editor-content").classList.remove("hidden");
+  // Mobile: switch to editor view (sidebar hidden via CSS)
+  $(".layout").classList.add("editor-open");
 }
+
+// Back-to-list handler for mobile
+document.addEventListener("click", (e) => {
+  if (e.target.id === "btn-back-to-list" || e.target.closest("#btn-back-to-list")) {
+    if (state.dirty && !confirm("Quitter sans enregistrer ?")) return;
+    $(".layout").classList.remove("editor-open");
+  }
+});
 
 function snapshotFields(c) {
   const out = {};

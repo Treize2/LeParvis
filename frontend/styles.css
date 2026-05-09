@@ -657,14 +657,107 @@ a:hover { text-decoration: underline; }
    Responsive
    ========================================================================= */
 
-@media (max-width: 720px) {
-  .topbar { padding: 10px 16px; }
-  .api-pill { display: none; }
-  .hero { padding: 40px 16px 32px; }
-  .results-shell { padding: 20px 16px 60px; }
-  .results-header { flex-direction: column; gap: 10px; align-items: flex-start; }
-  .search-shell { flex-direction: column; padding: 12px; border-radius: var(--radius); }
-  .search-shell input { width: 100%; padding: 8px 0; }
-  .search-submit { width: 100%; }
-  .map-view { height: 70vh; }
+/* =========================================================================
+   Bottom navigation (mobile only)
+   ========================================================================= */
+
+.bottom-nav {
+  display: none;
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  z-index: 80;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  box-shadow: 0 -2px 14px rgba(43, 33, 24, 0.08);
+}
+.bottom-nav-inner {
+  display: flex;
+  justify-content: space-around;
+  align-items: stretch;
+  max-width: 100%;
+}
+.bottom-nav-item {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 6px;
+  text-decoration: none;
+  color: var(--ink-muted);
+  font-size: 10.5px;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  min-height: 56px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.bottom-nav-item .icon {
+  font-size: 22px;
+  line-height: 1;
+}
+.bottom-nav-item.active {
+  color: var(--accent);
+}
+.bottom-nav-item.active .icon {
+  filter: drop-shadow(0 2px 4px rgba(139, 26, 26, 0.25));
+}
+.bottom-nav-item:active { background: var(--paper-2); }
+.bottom-nav-item:hover { color: var(--ink); }
+
+/* =========================================================================
+   Responsive — mobile-first refinements
+   ========================================================================= */
+
+@media (max-width: 768px) {
+  /* Reveal bottom nav */
+  .bottom-nav { display: block; }
+  /* Reserve room for the fixed nav so content isn't hidden under it */
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0)); }
+  /* Top bar gets minimal — hide secondary nav, the bottom nav covers it */
+  .topbar { padding: 8px 14px; }
+  .topbar-nav .link-muted,
+  .topbar-nav .api-pill { display: none; }
+  /* Hero spacing */
+  .hero { padding: 28px 16px 24px; }
+  .hero-title { letter-spacing: 0.5px; }
+  /* Search shell becomes a stacked block, button below */
+  .search-shell {
+    flex-direction: column;
+    padding: 10px;
+    border-radius: var(--radius);
+    gap: 6px;
+  }
+  .search-shell .search-icon { display: none; }
+  .search-shell input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--paper-2);
+    font-size: 16px; /* avoid iOS zoom on focus */
+  }
+  .search-submit {
+    width: 100%;
+    padding: 12px;
+    border-radius: var(--radius-sm);
+  }
+  /* Quick chips become redundant on mobile (bottom nav has them) */
+  .hero-actions { display: none; }
+  /* Results header stacks */
+  .results-shell { padding: 18px 14px 20px; }
+  .results-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  /* Map height adapts to viewport, leaves room for bottom nav */
+  .map-view { height: calc(100dvh - 240px); min-height: 360px; }
+}
+
+@media (max-width: 480px) {
+  /* Single-column cards */
+  .list-view { grid-template-columns: 1fr; }
+  /* Hide the inline list/map toggle — bottom nav drives view switching */
+  .view-toggle { display: none; }
 }
