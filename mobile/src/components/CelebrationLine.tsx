@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { colors, dayLabel, formatTime, spacing } from "../theme";
+import { colors, dayLabel, fonts, formatTime, spacing } from "../theme";
 import type { Celebration, TaxonomyItem } from "../types";
 import { labelFor } from "../hooks/useTaxonomy";
 
@@ -39,7 +39,13 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 4,
   },
-  time: { fontWeight: "600", color: colors.ink, fontSize: 14 },
+  time: {
+    fontFamily: fonts.mono,
+    fontWeight: "500",
+    color: colors.ink,
+    fontSize: 14,
+    letterSpacing: -0.3,
+  },
   label: { color: colors.inkSoft, fontSize: 14 },
   extra: { color: colors.gold, fontSize: 12, marginLeft: 4 },
 });
