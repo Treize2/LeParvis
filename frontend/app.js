@@ -267,11 +267,18 @@ function renderList() {
 function renderMap() {
   const container = el("#map-view");
   if (!state.map) {
-    state.map = L.map(container).setView([46.6, 2.5], 5);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap",
-      maxZoom: 18,
-    }).addTo(state.map);
+    state.map = L.map(container, { zoomControl: true }).setView([46.6, 2.5], 5);
+    // Minimal grayscale tiles — much less visual noise than the
+    // default OSM tiles (and Leaflet's default PNG markers don't load
+    // reliably through unpkg, so we use a CSS divIcon below).
+    L.tileLayer(
+      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+      {
+        attribution: "© OpenStreetMap · © CARTO",
+        subdomains: "abcd",
+        maxZoom: 19,
+      },
+    ).addTo(state.map);
     state.markersLayer = L.layerGroup().addTo(state.map);
   }
   state.markersLayer.clearLayers();
@@ -279,7 +286,7 @@ function renderMap() {
   for (const item of state.results.items) {
     const c = item.church;
     if (c.latitude == null || c.longitude == null) continue;
-    const marker = L.marker([c.latitude, c.longitude]);
+    const marker = L.marker([c.latitude, c.longitude], { icon: churchIcon() });
     const cels = item.matched_celebrations
       .slice(0, 5)
       .map((cel) => {
@@ -303,6 +310,18 @@ function renderMap() {
   setTimeout(() => state.map.invalidateSize(), 100);
 }
 
+// CSS-styled marker so we don't depend on Leaflet's default PNG icons
+// (which sometimes 404 from CDNs and leave the map mute).
+function churchIcon() {
+  return L.divIcon({
+    className: "church-marker",
+    html: '<div class="church-pin" aria-hidden="true">✚</div>',
+    iconSize: [30, 38],
+    iconAnchor: [15, 38],
+    popupAnchor: [0, -34],
+  });
+}
+
 // ---------- View toggle ---------------------------------------------------
 
 els(".view-toggle button").forEach((btn) => {
@@ -324,11 +343,37 @@ el("#btn-geoloc").addEventListener("click", () => {
     return;
   }
   navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      el("#f-lat").value = pos.coords.latitude.toFixed(5);
-      el("#f-lon").value = pos.coords.longitude.toFixed(5);
+    async (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      el("#f-lat").value = lat.toFixed(5);
+      el("#f-lon").value = lon.toFixed(5);
+      if (!el("#f-radius").value) el("#f-radius").value = "10";
+      // Run the search first so markers render around the user's spot.
+      await runSearch();
+      // Then center the map and pin the user position. Falls back to
+      // setView if flyTo fails (e.g. map not yet sized).
+      if (state.map) {
+        try {
+          state.map.flyTo([lat, lon], 14, { duration: 0.8 });
+        } catch {
+          state.map.setView([lat, lon], 14);
+        }
+        if (state.userMarker) state.userMarker.remove();
+        state.userMarker = L.circleMarker([lat, lon], {
+          radius: 9,
+          fillColor: "#2563eb",
+          color: "#ffffff",
+          weight: 3,
+          fillOpacity: 1,
+        }).addTo(state.map).bindPopup("Vous êtes ici");
+      }
+      // If the user is on the list view, also flip to the map so they
+      // see the result of geolocating.
+      const mapToggle = els(".view-toggle button").find((b) => b.dataset.view === "map");
+      if (mapToggle) mapToggle.click();
     },
-    (err) => alert("Géolocalisation refusée: " + err.message)
+    (err) => alert("Géolocalisation refusée: " + err.message),
   );
 });
 

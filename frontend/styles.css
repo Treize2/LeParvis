@@ -496,6 +496,49 @@ a:hover { text-decoration: underline; }
   box-shadow: var(--shadow-sm);
 }
 
+/* Subtle desaturation: lets the parish pins pop against the tile noise. */
+.leaflet-container .leaflet-tile-pane { filter: saturate(0.85) brightness(1.02); }
+
+/* Custom CSS-styled marker — independent of Leaflet's default PNG icons
+   (which sometimes 404 from the CDN, leaving the map blank of pins). */
+.church-marker { background: transparent; border: none; }
+.church-pin {
+  width: 30px; height: 30px;
+  background: var(--accent);
+  color: #fff;
+  border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(43, 33, 24, 0.25);
+  position: relative;
+  top: 0;
+}
+.church-pin::after {
+  /* Centers the cross glyph despite the rotated container. */
+  content: "✚";
+  display: block;
+  transform: rotate(45deg);
+}
+.church-pin { font-size: 0; }       /* hide the literal text inside HTML */
+.church-pin::after { font-size: 14px; color: #fff; }
+.church-marker:hover .church-pin {
+  background: var(--accent-soft);
+  transform: rotate(-45deg) scale(1.1);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+/* Subtle popup styling */
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+}
+.leaflet-popup-content { font-family: var(--sans); font-size: 13px; }
+
 /* =========================================================================
    Filter slide-over
    ========================================================================= */
