@@ -8,20 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="styles.css?v=2" />
-  <!-- Critical visibility rules inlined so that a stale external CSS
-       cache can't show the desktop top bar AND the mobile hero at the
-       same time. -->
-  <style>
-    @media (min-width: 961px) {
-      .mobile-locbar, .mobile-hero { display: none !important; }
-    }
-    @media (max-width: 960px) {
-      .topbar, .map-pane, .detail-pane { display: none !important; }
-      body.app .mobile-locbar { display: flex !important; }
-      body.app .mobile-hero { display: block !important; }
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body class="app">
 
