@@ -563,20 +563,24 @@ code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
 .celebration-row:last-child { border-bottom: none; }
 
 .cel-time {
-  font-weight: 700;
-  font-size: 16px;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.3px;
   color: var(--accent);
-  font-family: Georgia, serif;
+  font-family: var(--mono, ui-monospace, Menlo, monospace);
+  font-variant-numeric: tabular-nums;
 }
 .cel-time input {
-  width: 80px;
+  width: 88px;
   padding: 4px 6px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  font-family: Georgia, serif;
-  font-weight: 700;
+  font-family: var(--mono, ui-monospace, Menlo, monospace);
+  font-weight: 600;
   font-size: 14px;
+  letter-spacing: -0.3px;
   color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
 
 .cel-meta {

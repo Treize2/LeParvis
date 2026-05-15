@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 /**
  * Liturgical-inspired palette, mirrors the web frontend so users perceive
  * one product across surfaces.
@@ -33,6 +35,14 @@ export const radius = {
 export const fonts = {
   // Falls back to the platform serif so we don't need to bundle Cormorant.
   serif: "Georgia",
+  // Monospaced face for time values — keeps digits column-aligned and
+  // visually distinct from prose. On iOS RN does not resolve the generic
+  // 'monospace' keyword, so we name a system font explicitly.
+  mono: Platform.select({
+    ios: "Menlo",
+    android: "monospace",
+    default: "monospace",
+  }) as string,
 };
 
 export const DAY_LABELS = [
