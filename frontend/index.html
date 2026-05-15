@@ -2,238 +2,157 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Le Parvis · Horaires des célébrations</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeParvis · Horaires des célébrations catholiques</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="app">
+<body>
 
-  <!-- =============================================================
-       MOBILE STATUS / LOCATION BAR  (visible only on phones)
-       ============================================================= -->
-  <div class="mobile-locbar">
-    <span class="mobile-locbar-pin">📍</span>
-    <span class="mobile-locbar-text" id="mobile-locbar-text">PARIS · AUJOURD'HUI</span>
-    <button type="button" id="mobile-settings" class="mobile-locbar-settings" aria-label="Réglages">⚙</button>
-  </div>
-
-  <!-- =============================================================
-       DESKTOP TOP BAR
-       ============================================================= -->
+  <!-- Top bar : minimal -->
   <header class="topbar">
-    <a href="/" class="topbar-brand">
-      <span class="brand-text">Le Parvis</span>
-      <span class="beta-badge">BÉTA</span>
-    </a>
-
-    <div class="topbar-search">
-      <span class="search-icon" aria-hidden="true">🔍</span>
-      <input id="f-query" type="text" autocomplete="off"
-             placeholder="Paris 6ᵉ · aujourd'hui · toute la journée" />
-      <kbd class="search-kbd">⌘K</kbd>
+    <div class="brand-block">
+      <span class="brand-mark">⛪</span>
+      <span class="brand-name">LeParvis</span>
     </div>
-
     <nav class="topbar-nav">
-      <a href="#" class="link-muted">Diocèses</a>
-      <a href="#" class="link-muted">Calendrier liturgique</a>
-      <a href="#" class="link-muted">À propos</a>
-      <a href="/admin.html" class="avatar" title="Admin">JD</a>
+      <a href="/admin.html" class="link-muted">Admin</a>
+      <span class="api-pill" title="URL de l'API">
+        <input id="api-base" type="text" placeholder="(même origine)" />
+      </span>
     </nav>
   </header>
 
-  <input id="api-base" type="hidden" />
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-inner">
+      <h1 class="hero-title">LeParvis</h1>
+      <p class="hero-tagline">
+        Trouver une messe, des laudes, des vêpres
+        <span class="hero-divider">·</span>
+        partout en France
+      </p>
 
-  <!-- =============================================================
-       MOBILE HERO
-       ============================================================= -->
-  <section class="mobile-hero">
-    <h1 class="mobile-hero-title">Le Parvis</h1>
-    <p class="mobile-hero-tagline">
-      Trouvez la prochaine célébration autour de vous.
-    </p>
+      <div class="search-shell">
+        <span class="search-icon">🔍</span>
+        <input id="f-query" type="text"
+               placeholder="Une ville, un nom de paroisse, une abbaye…"
+               autocomplete="off" />
+        <button type="button" id="btn-search" class="btn btn-primary search-submit">Rechercher</button>
+      </div>
 
-    <div class="mobile-search">
-      <span class="search-icon" aria-hidden="true">🔍</span>
-      <input id="f-query-mobile" type="text" placeholder="Ville, paroisse, type…" />
-    </div>
-
-    <div class="filter-pills filter-pills-mobile" id="celebration-pills-mobile">
-      <button type="button" class="pill" data-celeb="mass-soir">
-        <span class="pill-icon">✚</span>Messe ce soir
-      </button>
-      <button type="button" class="pill" data-celeb="adoration">
-        <span class="pill-icon">✚</span>Adoration
-      </button>
-      <button type="button" class="pill" data-celeb="confession">
-        <span class="pill-icon">❋</span>Confession
-      </button>
-    </div>
-
-    <div class="mini-map-card">
-      <div id="mini-map" class="mini-map"></div>
-      <div class="mini-map-overlay">
-        <span class="mini-map-stat"><span id="mini-lieux-count">—</span> LIEUX · <span id="mini-offices-count">—</span> OFFICES À VENIR</span>
-        <button type="button" class="mini-map-cta" id="btn-show-fullmap">Voir la carte ›</button>
+      <div class="hero-actions">
+        <button type="button" id="btn-geoloc" class="chip-btn">
+          <span aria-hidden="true">📍</span> Près de moi
+        </button>
+        <button type="button" id="btn-open-filters" class="chip-btn">
+          <span aria-hidden="true">⚙️</span> Filtres
+          <span id="active-filters-count" class="chip-count hidden">0</span>
+        </button>
+        <button type="button" id="btn-reset" class="chip-btn chip-btn-muted">
+          <span aria-hidden="true">⟲</span> Effacer
+        </button>
       </div>
     </div>
-
-    <header class="proximity-header">
-      <h2>À proximité</h2>
-      <span class="proximity-rayon">RAYON <span id="proximity-rayon-value">1.5</span> KM</span>
-    </header>
   </section>
 
-  <!-- =============================================================
-       DESKTOP 3-PANE LAYOUT  (also stacks for mobile via CSS)
-       ============================================================= -->
-  <main class="city-layout">
-
-    <!-- LEFT : list -->
-    <section class="list-pane">
-      <header class="list-header">
-        <h2 class="list-title">
-          <span id="results-count">—</span>
-          <span class="list-title-light">célébrations</span>
-        </h2>
-        <span class="lieux-count">
-          <span id="lieux-count">—</span> LIEUX
-        </span>
-      </header>
-
-      <div class="filter-pills" id="celebration-pills">
-        <button type="button" class="pill active" data-celeb="">
-          <span class="pill-icon">☾</span>Tous
+  <!-- Results -->
+  <main class="results-shell">
+    <div class="results-header">
+      <h2 id="results-title" class="results-title">
+        <span id="results-count">—</span>
+        <span class="results-label">résultats</span>
+      </h2>
+      <div class="view-toggle">
+        <button type="button" data-view="list" class="active">
+          <span aria-hidden="true">▤</span> Liste
         </button>
-        <button type="button" class="pill" data-celeb="mass">
-          <span class="pill-icon">✚</span>Messe
-        </button>
-        <button type="button" class="pill" data-celeb="lauds">
-          <span class="pill-icon">✦</span>Laudes
-        </button>
-        <button type="button" class="pill" data-celeb="vespers">
-          <span class="pill-icon">☽</span>Vêpres
-        </button>
-        <button type="button" class="pill" data-celeb="adoration">
-          <span class="pill-icon">✚</span>Adoration
-        </button>
-        <button type="button" class="pill" data-celeb="confession">
-          <span class="pill-icon">❋</span>Confession
-        </button>
-        <button type="button" class="pill" data-celeb-rite="extraordinary">
-          <span class="pill-icon">LA</span>Latin
-        </button>
-        <button type="button" class="pill pill-more" id="btn-open-filters">
-          + Filtres
+        <button type="button" data-view="map">
+          <span aria-hidden="true">🗺</span> Carte
         </button>
       </div>
+    </div>
 
-      <div id="loading-state" class="state-card hidden">
-        <div class="loading-dots"><span></span><span></span><span></span></div>
-        <p>Recherche…</p>
-      </div>
-      <div id="empty-state" class="state-card hidden">
-        <div class="state-emoji">🕊️</div>
-        <p>Aucun lieu ne correspond.</p>
-      </div>
-      <div id="error-state" class="state-card hidden">
-        <div class="state-emoji">✕</div>
-        <p id="error-message"></p>
-      </div>
+    <div id="loading-state" class="state-card hidden">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <p>Recherche…</p>
+    </div>
 
-      <div id="church-list" class="church-list"></div>
-    </section>
+    <div id="empty-state" class="state-card hidden">
+      <div class="state-emoji">🕊️</div>
+      <h3>Aucun lieu ne correspond</h3>
+      <p>Essaie d'élargir le rayon, retire des filtres ou saisis une autre ville.</p>
+    </div>
 
-    <!-- CENTER : map (desktop) -->
-    <section class="map-pane">
-      <div id="map-view" class="map-view"></div>
-      <div class="map-footer">
-        <span class="map-stat">
-          <span id="map-lieux-count">—</span> LIEUX
-          <span class="dot-sep">·</span>
-          <span id="map-offices-count">—</span> OFFICES AUJOURD'HUI
-        </span>
-      </div>
-    </section>
+    <div id="error-state" class="state-card hidden">
+      <div class="state-emoji">✕</div>
+      <h3>API injoignable</h3>
+      <p id="error-message"></p>
+    </div>
 
-    <!-- RIGHT : detail (desktop) -->
-    <aside class="detail-pane">
-      <div id="detail-empty" class="detail-empty">
-        <div class="state-emoji">📜</div>
-        <p>Sélectionne un lieu sur la carte ou dans la liste.</p>
-      </div>
-
-      <article id="detail-content" class="detail-content hidden">
-        <header class="detail-header">
-          <p class="detail-meta"><span id="detail-meta-text">—</span></p>
-          <h2 id="detail-name">—</h2>
-          <p class="detail-subtitle" id="detail-subtitle">—</p>
-          <div class="detail-badges" id="detail-badges"></div>
-        </header>
-
-        <div class="next-office-card" id="next-office-card">
-          <p class="next-office-label">
-            PROCHAIN OFFICE
-            <span class="next-office-eta" id="next-office-eta"></span>
-          </p>
-          <p class="next-office-line">
-            <span class="next-office-time" id="next-office-time">—</span>
-            <span class="next-office-type" id="next-office-type">—</span>
-          </p>
-          <p class="next-office-meta" id="next-office-meta"></p>
-        </div>
-
-        <section class="all-offices">
-          <p class="section-label">
-            AUJOURD'HUI <span class="dot-sep">·</span>
-            <span id="detail-offices-count">—</span> OFFICES
-          </p>
-          <ul id="detail-offices-list" class="offices-list"></ul>
-        </section>
-
-        <div class="detail-actions">
-          <a href="#" class="btn-link" id="detail-full-link">Voir la fiche complète →</a>
-        </div>
-      </article>
-    </aside>
+    <div id="list-view" class="list-view"></div>
+    <div id="map-view" class="map-view hidden"></div>
   </main>
 
-  <!-- =============================================================
-       FILTERS SLIDE-OVER
-       ============================================================= -->
+  <!-- Filters slide-over -->
   <aside id="filter-panel" class="filter-panel hidden">
     <header class="filter-header">
-      <h2>Filtres avancés</h2>
+      <h2>Filtres</h2>
       <button type="button" id="btn-close-filters" class="modal-close" aria-label="Fermer">&times;</button>
     </header>
+
     <div class="filter-body">
+      <section class="filter-section">
+        <h3>Lieu</h3>
+        <div class="row">
+          <label>
+            <span>Ville</span>
+            <input id="f-city" type="text" placeholder="Versailles" />
+          </label>
+          <label>
+            <span>Code postal</span>
+            <input id="f-postal" type="text" placeholder="78000" />
+          </label>
+        </div>
+        <div class="row">
+          <label>
+            <span>Latitude</span>
+            <input id="f-lat" type="number" step="0.0001" />
+          </label>
+          <label>
+            <span>Longitude</span>
+            <input id="f-lon" type="number" step="0.0001" />
+          </label>
+          <label>
+            <span>Rayon (km)</span>
+            <input id="f-radius" type="number" min="1" max="200" value="10" />
+          </label>
+        </div>
+      </section>
+
       <section class="filter-section">
         <h3>Type de lieu</h3>
         <div id="f-church-types" class="chips"></div>
       </section>
+
+      <section class="filter-section">
+        <h3>Type de célébration</h3>
+        <div id="f-celebration-types" class="chips"></div>
+      </section>
+
       <section class="filter-section">
         <h3>Communauté</h3>
         <div id="f-communities" class="chips"></div>
       </section>
+
       <section class="filter-section">
         <h3>Rite</h3>
         <div id="f-rites" class="chips"></div>
       </section>
-      <section class="filter-section">
-        <h3>Lieu précis</h3>
-        <div class="row">
-          <label><span>Ville</span><input id="f-city" type="text" /></label>
-          <label><span>Code postal</span><input id="f-postal" type="text" /></label>
-        </div>
-        <div class="row">
-          <label><span>Lat</span><input id="f-lat" type="number" step="0.0001" /></label>
-          <label><span>Lon</span><input id="f-lon" type="number" step="0.0001" /></label>
-          <label><span>Rayon km</span><input id="f-radius" type="number" min="1" max="200" value="10" /></label>
-        </div>
-      </section>
+
       <section class="filter-section">
         <h3>Quand</h3>
         <div class="row">
@@ -241,9 +160,12 @@
             <span>Jour</span>
             <select id="f-day">
               <option value="">Indifférent</option>
-              <option value="0">Lundi</option><option value="1">Mardi</option>
-              <option value="2">Mercredi</option><option value="3">Jeudi</option>
-              <option value="4">Vendredi</option><option value="5">Samedi</option>
+              <option value="0">Lundi</option>
+              <option value="1">Mardi</option>
+              <option value="2">Mercredi</option>
+              <option value="3">Jeudi</option>
+              <option value="4">Vendredi</option>
+              <option value="5">Samedi</option>
               <option value="6">Dimanche</option>
             </select>
           </label>
@@ -251,55 +173,74 @@
           <label><span>Avant</span><input id="f-before" type="time" /></label>
         </div>
       </section>
+
       <details class="filter-section ingest">
         <summary>⚙️ Importer de nouvelles données</summary>
-        <p class="hint">Lance une recherche OSM ou ingère une page paroisse.</p>
-        <button type="button" id="btn-ingest-area" class="btn btn-secondary">🗺 Importer la zone (OSM)</button>
-        <label><span>URL</span><input id="ingest-url" type="url" /></label>
-        <button type="button" id="btn-ingest-url" class="btn btn-secondary">Extraire</button>
+        <p class="hint">
+          1. <strong>Lieux dans la zone</strong> via OpenStreetMap (renseigne lat/lon ci-dessus).<br />
+          2. <strong>URL d'une paroisse</strong> — extrait les horaires de son site.
+        </p>
+        <div class="row">
+          <button type="button" id="btn-ingest-area" class="btn btn-secondary">🗺 Importer les lieux (OSM)</button>
+        </div>
+        <label>
+          <span>URL d'une page paroisse / monastère</span>
+          <input id="ingest-url" type="url" placeholder="https://www.exemple-paroisse.fr/horaires" />
+        </label>
+        <button type="button" id="btn-ingest-url" class="btn btn-secondary">Extraire les horaires</button>
         <pre id="ingest-output" class="ingest-output"></pre>
       </details>
     </div>
+
     <footer class="filter-footer">
-      <button type="button" id="btn-reset" class="btn btn-ghost">Effacer</button>
+      <button type="button" id="btn-close-filters-2" class="btn btn-ghost">Fermer</button>
       <button type="button" id="btn-apply-filters" class="btn btn-primary">Appliquer</button>
     </footer>
   </aside>
   <div id="filter-backdrop" class="backdrop hidden"></div>
 
-  <!-- Hidden legacy elements kept for app.js compat -->
-  <div class="view-toggle hidden">
-    <button type="button" data-view="list" class="active">L</button>
-    <button type="button" data-view="map">M</button>
-  </div>
-  <button id="btn-geoloc" class="hidden"></button>
-  <button id="btn-search" class="hidden"></button>
-  <template id="church-card"><div></div></template>
-
-  <!-- =============================================================
-       BOTTOM NAV (mobile)
-       ============================================================= -->
-  <nav class="bottom-nav" aria-label="Navigation principale">
-    <div class="bottom-nav-inner">
-      <button type="button" class="bottom-nav-item active" data-nav="list">
-        <span class="icon">📋</span><span class="label">Liste</span>
-      </button>
-      <button type="button" class="bottom-nav-item" data-nav="map">
-        <span class="icon">🗺</span><span class="label">Carte</span>
-      </button>
-      <button type="button" class="bottom-nav-item" data-nav="geoloc">
-        <span class="icon">📍</span><span class="label">Près</span>
-      </button>
-      <button type="button" class="bottom-nav-item" data-nav="filters">
-        <span class="icon">⚙️</span><span class="label">Filtres</span>
-      </button>
-      <a href="/admin.html" class="bottom-nav-item">
-        <span class="icon">👤</span><span class="label">Admin</span>
-      </a>
-    </div>
-  </nav>
+  <template id="church-card">
+    <article class="card">
+      <header class="card-header">
+        <h3 class="name"></h3>
+        <span class="badge type"></span>
+      </header>
+      <p class="meta"></p>
+      <ul class="celebrations"></ul>
+      <footer class="card-footer">
+        <a class="website" target="_blank" rel="noopener">Site web ↗</a>
+        <span class="distance"></span>
+      </footer>
+    </article>
+  </template>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="app.js"></script>
+
+  <!-- Bottom navigation — mobile only, hidden on desktop via CSS -->
+  <nav class="bottom-nav" aria-label="Navigation principale">
+    <div class="bottom-nav-inner">
+      <a href="/" class="bottom-nav-item active" data-nav="search">
+        <span class="icon">🔍</span>
+        <span class="label">Rechercher</span>
+      </a>
+      <button type="button" class="bottom-nav-item" data-nav="map">
+        <span class="icon">🗺</span>
+        <span class="label">Carte</span>
+      </button>
+      <button type="button" class="bottom-nav-item" data-nav="geoloc">
+        <span class="icon">📍</span>
+        <span class="label">Près</span>
+      </button>
+      <button type="button" class="bottom-nav-item" data-nav="filters">
+        <span class="icon">⚙️</span>
+        <span class="label">Filtres</span>
+      </button>
+      <a href="/admin.html" class="bottom-nav-item" data-nav="admin">
+        <span class="icon">👤</span>
+        <span class="label">Admin</span>
+      </a>
+    </div>
+  </nav>
 </body>
 </html>
