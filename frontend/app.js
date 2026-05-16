@@ -257,8 +257,21 @@ function renderList() {
       }
     });
 
+    // Airbnb-style: hovering a card highlights its pin on the map.
+    card.addEventListener("mouseenter", () => highlightMarker(c.id, true));
+    card.addEventListener("mouseleave", () => highlightMarker(c.id, false));
+
     list.appendChild(node);
   }
+}
+
+function highlightMarker(churchId, on) {
+  const marker = state.markersByChurch?.[churchId];
+  if (!marker) return;
+  const elNode = marker.getElement();
+  if (!elNode) return;
+  const pin = elNode.querySelector(".church-pin");
+  if (pin) pin.classList.toggle("highlighted", on);
 }
 
 function renderMap() {
@@ -281,6 +294,7 @@ function renderMap() {
     state.markersLayer = L.layerGroup().addTo(state.map);
   }
   state.markersLayer.clearLayers();
+  state.markersByChurch = {};
   const points = [];
   for (const item of state.results.items) {
     const c = item.church;
@@ -301,6 +315,7 @@ function renderMap() {
       `<a href="church.html?id=${c.id}" style="color:#8b1a1a">Voir la fiche →</a>`
     );
     state.markersLayer.addLayer(marker);
+    state.markersByChurch[c.id] = marker;
     points.push([c.latitude, c.longitude]);
   }
   if (points.length) {

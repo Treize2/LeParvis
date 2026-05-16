@@ -525,10 +525,15 @@ a:hover { text-decoration: underline; }
 }
 .church-pin { font-size: 0; }       /* hide the literal text inside HTML */
 .church-pin::after { font-size: 14px; color: #fff; }
-.church-marker:hover .church-pin {
-  background: var(--accent-soft);
-  transform: rotate(-45deg) scale(1.1);
-  transition: transform 0.15s ease, background 0.15s ease;
+.church-marker:hover .church-pin,
+.church-pin.highlighted {
+  background: var(--gold);
+  transform: rotate(-45deg) scale(1.2);
+  box-shadow: 0 6px 18px rgba(43, 33, 24, 0.35);
+  z-index: 1000;
+}
+.church-pin {
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 /* Subtle popup styling */
@@ -800,6 +805,23 @@ a:hover { text-decoration: underline; }
     top: 18px;
     height: calc(100vh - 200px);
     min-height: 480px;
+  }
+  /* Cards are denser in the narrower split column. */
+  body.split-mode .card {
+    padding: 14px 16px;
+    gap: 8px;
+  }
+  body.split-mode .card .meta { font-size: 12.5px; }
+  body.split-mode .card .celebrations { font-size: 13px; }
+
+  /* Slim, discrete scrollbar for the list column. */
+  body.split-mode .list-view::-webkit-scrollbar { width: 6px; }
+  body.split-mode .list-view::-webkit-scrollbar-thumb {
+    background: rgba(43, 33, 24, 0.18);
+    border-radius: 3px;
+  }
+  body.split-mode .list-view::-webkit-scrollbar-thumb:hover {
+    background: rgba(43, 33, 24, 0.32);
   }
 }
 
