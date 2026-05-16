@@ -504,9 +504,19 @@ el("#btn-ingest-url").addEventListener("click", async () => {
 
 // ---------- Bottom nav (mobile) ------------------------------------------
 
+function switchView(target) {
+  // Programmatically click the hidden desktop toggle so its existing
+  // handler does the show/hide work — keeps a single source of truth.
+  const toggle = els(".view-toggle button").find((b) => b.dataset.view === target);
+  if (toggle) toggle.click();
+  if (target === "map") setTimeout(() => state.map?.invalidateSize(), 60);
+}
+
 els(".bottom-nav-item").forEach((btn) => {
-  if (btn.tagName === "A") return; // anchor items navigate natively
-  btn.addEventListener("click", () => {
+  // The Admin item is a real anchor — let it navigate to /admin.html.
+  if (btn.tagName === "A" && btn.getAttribute("href") !== "/") return;
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
     const action = btn.dataset.nav;
     setActiveBottomNav(btn);
     if (action === "filters") {
@@ -514,9 +524,11 @@ els(".bottom-nav-item").forEach((btn) => {
     } else if (action === "geoloc") {
       el("#btn-geoloc").click();
     } else if (action === "map") {
-      // Switch to map view via the existing toggle.
-      const mapToggle = els(".view-toggle button").find(b => b.dataset.view === "map");
-      if (mapToggle) mapToggle.click();
+      switchView("map");
+    } else if (action === "list") {
+      switchView("list");
+      // Scroll back to the top so the search bar is in view.
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   });
 });
