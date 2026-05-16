@@ -175,13 +175,10 @@ function renderResults() {
     showState("empty");
     return;
   }
-  // Show whichever view is active in the toggle.
-  const activeView = el(".view-toggle button.active")?.dataset.view || "list";
-  el("#list-view").classList.toggle("hidden", activeView !== "list");
-  el("#map-view").classList.toggle("hidden", activeView !== "map");
+  // Re-apply the current view layout (list-only, map-only, or split).
+  applyViewLayout();
   renderList();
   renderMap();
-  if (activeView === "map") setTimeout(() => state.map?.invalidateSize(), 80);
 }
 
 function renderList() {
@@ -271,8 +268,10 @@ function renderMap() {
     // Minimal grayscale tiles — much less visual noise than the
     // default OSM tiles (and Leaflet's default PNG markers don't load
     // reliably through unpkg, so we use a CSS divIcon below).
+    // CartoDB Voyager: warm, colorful, Airbnb-ish — water in blue, parks in
+    // green, roads with subtle hierarchy. Much friendlier than Positron.
     L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
       {
         attribution: "© OpenStreetMap · © CARTO",
         subdomains: "abcd",
@@ -324,15 +323,37 @@ function churchIcon() {
 
 // ---------- View toggle ---------------------------------------------------
 
+// On desktop the map opens beside the list (Airbnb-style split). On mobile
+// it's still a one-or-the-other toggle. applyViewLayout() reads body.dataset.view
+// and the viewport width, then resolves what to actually show.
+function applyViewLayout() {
+  const view = document.body.dataset.view || "list";
+  const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+  const splitMode = isDesktop && view === "map";
+
+  document.body.classList.toggle("split-mode", splitMode);
+
+  // In split mode both panes are visible. Otherwise only the active one.
+  el("#list-view").classList.toggle("hidden", view === "map" && !splitMode);
+  el("#map-view").classList.toggle("hidden", view === "list");
+
+  els(".view-toggle button").forEach((b) =>
+    b.classList.toggle("active", b.dataset.view === view));
+
+  if (view === "map" || splitMode) {
+    setTimeout(() => state.map?.invalidateSize(), 80);
+  }
+}
+
+function setActiveView(view) {
+  document.body.dataset.view = view;
+  applyViewLayout();
+}
+
+window.addEventListener("resize", applyViewLayout);
+
 els(".view-toggle button").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    els(".view-toggle button").forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    const view = btn.dataset.view;
-    el("#list-view").classList.toggle("hidden", view !== "list");
-    el("#map-view").classList.toggle("hidden", view !== "map");
-    if (view === "map") setTimeout(() => state.map?.invalidateSize(), 100);
-  });
+  btn.addEventListener("click", () => setActiveView(btn.dataset.view));
 });
 
 // ---------- Geolocation --------------------------------------------------
@@ -508,20 +529,8 @@ el("#btn-ingest-url").addEventListener("click", async () => {
 
 // ---------- Bottom nav (mobile) ------------------------------------------
 
-function showListView() {
-  el("#list-view").classList.remove("hidden");
-  el("#map-view").classList.add("hidden");
-  els(".view-toggle button").forEach((b) =>
-    b.classList.toggle("active", b.dataset.view === "list"));
-}
-
-function showMapView() {
-  el("#list-view").classList.add("hidden");
-  el("#map-view").classList.remove("hidden");
-  els(".view-toggle button").forEach((b) =>
-    b.classList.toggle("active", b.dataset.view === "map"));
-  setTimeout(() => state.map?.invalidateSize(), 60);
-}
+function showListView() { setActiveView("list"); }
+function showMapView() { setActiveView("map"); }
 
 function triggerGeoloc() {
   if (!navigator.geolocation) {
@@ -584,6 +593,7 @@ els(".bottom-nav-item").forEach((btn) => {
 // ---------- Boot ---------------------------------------------------------
 
 (async function init() {
+  if (!document.body.dataset.view) document.body.dataset.view = "list";
   await loadTaxonomy();
   await runSearch();
 })();

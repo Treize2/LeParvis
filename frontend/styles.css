@@ -496,8 +496,7 @@ a:hover { text-decoration: underline; }
   box-shadow: var(--shadow-sm);
 }
 
-/* Subtle desaturation: lets the parish pins pop against the tile noise. */
-.leaflet-container .leaflet-tile-pane { filter: saturate(0.85) brightness(1.02); }
+/* CartoDB Voyager tiles are already nicely tuned — no filter needed. */
 
 /* Custom CSS-styled marker — independent of Leaflet's default PNG icons
    (which sometimes 404 from the CDN, leaving the map blank of pins). */
@@ -776,6 +775,32 @@ a:hover { text-decoration: underline; }
     transition: padding-right 0.18s ease;
   }
   body.filters-open .results-shell { margin: 0; }
+
+  /* Airbnb-style split: when the user picks "Carte" on desktop, the list
+     stays visible on the left and the map docks on the right. */
+  body.split-mode .results-shell {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(360px, 1fr) minmax(440px, 1.2fr);
+    gap: 22px;
+    padding-bottom: 24px;
+  }
+  body.split-mode .results-header {
+    grid-column: 1 / -1;
+  }
+  body.split-mode .list-view {
+    grid-template-columns: 1fr;
+    align-content: start;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    padding-right: 6px;
+  }
+  body.split-mode .map-view {
+    position: sticky;
+    top: 18px;
+    height: calc(100vh - 200px);
+    min-height: 480px;
+  }
 }
 
 @media (max-width: 768px) {
