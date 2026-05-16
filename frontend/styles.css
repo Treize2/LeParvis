@@ -591,7 +591,8 @@ a:hover { text-decoration: underline; }
   position: fixed;
   inset: 0;
   background: rgba(43, 33, 24, 0.45);
-  z-index: 90;
+  /* Above Leaflet's internal z-indices (zoom controls reach 1000). */
+  z-index: 9000;
   animation: fade-in 0.18s ease;
 }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -601,7 +602,8 @@ a:hover { text-decoration: underline; }
   top: 0; right: 0; bottom: 0;
   width: min(440px, 92vw);
   background: var(--paper);
-  z-index: 100;
+  /* Must beat Leaflet's controls (z-index 1000) and popups (z-index 700). */
+  z-index: 9100;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg);
