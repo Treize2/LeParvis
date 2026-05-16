@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="styles.css?v=10" />
+  <link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body>
 
@@ -214,10 +214,9 @@
     </article>
   </template>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="app.js?v=10"></script>
-
-  <!-- Bottom navigation — mobile only, hidden on desktop via CSS -->
+  <!-- Bottom navigation — mobile only, hidden on desktop via CSS.
+       MUST live before app.js so the nav-item handlers actually find
+       the buttons at attach time. -->
   <nav class="bottom-nav" aria-label="Navigation principale">
     <div class="bottom-nav-inner">
       <button type="button" class="bottom-nav-item active" data-nav="list">
@@ -242,5 +241,8 @@
       </a>
     </div>
   </nav>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
