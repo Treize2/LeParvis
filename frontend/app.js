@@ -396,10 +396,14 @@ el("#btn-reset").addEventListener("click", () => {
 function openFilters() {
   el("#filter-panel").classList.remove("hidden");
   el("#filter-backdrop").classList.remove("hidden");
+  document.body.classList.add("filters-open");
+  setTimeout(() => state.map?.invalidateSize(), 220);
 }
 function closeFilters() {
   el("#filter-panel").classList.add("hidden");
   el("#filter-backdrop").classList.add("hidden");
+  document.body.classList.remove("filters-open");
+  setTimeout(() => state.map?.invalidateSize(), 220);
 }
 el("#btn-open-filters").addEventListener("click", openFilters);
 el("#btn-close-filters").addEventListener("click", closeFilters);

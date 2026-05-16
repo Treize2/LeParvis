@@ -759,6 +759,25 @@ a:hover { text-decoration: underline; }
    Responsive — mobile-first refinements
    ========================================================================= */
 
+/* Desktop: filter panel docks alongside the content instead of overlaying
+   the map. The body gets `filters-open` while the panel is visible. */
+@media (min-width: 1024px) {
+  body.filters-open .backdrop { display: none; }
+  body.filters-open .filter-panel {
+    box-shadow: none;
+    border-left: 1px solid var(--line);
+    animation: none;
+  }
+  body.filters-open .results-shell,
+  body.filters-open .hero,
+  body.filters-open .topbar {
+    padding-right: calc(440px + 24px);
+    max-width: none;
+    transition: padding-right 0.18s ease;
+  }
+  body.filters-open .results-shell { margin: 0; }
+}
+
 @media (max-width: 768px) {
   /* Reveal bottom nav */
   .bottom-nav { display: block; }
