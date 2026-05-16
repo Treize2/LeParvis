@@ -185,28 +185,39 @@ function renderList() {
   const list = el("#list-view");
   list.innerHTML = "";
   const tpl = el("#church-card");
+  const PREVIEW_CELEBRATIONS = 3;
   for (const item of state.results.items) {
     const node = tpl.content.cloneNode(true);
     const c = item.church;
     node.querySelector(".name").textContent = c.name;
     node.querySelector(".badge").textContent = churchTypeLabel(c.type);
+
+    // Meta: address+city if we have them, otherwise fall back to community
+    // or church-type label so the line is never empty.
+    const locBits = [c.address, c.postal_code, c.city].filter(Boolean);
+    const metaParts = [];
+    if (locBits.length) metaParts.push(locBits.join(" · "));
+    else if (c.city) metaParts.push(c.city);
+    if (c.community) metaParts.push(communityLabel(c.community));
     node.querySelector(".meta").textContent =
-      [c.address, c.postal_code, c.city].filter(Boolean).join(" · ") +
-      (c.community ? ` — ${communityLabel(c.community)}` : "");
+      metaParts.join(" — ") || churchTypeLabel(c.type);
 
     const cels = node.querySelector(".celebrations");
-    const sorted = [...item.matched_celebrations].sort((a, b) => {
+    const all = [...(item.matched_celebrations || [])].sort((a, b) => {
       const da = a.day_of_week ?? -1;
       const db = b.day_of_week ?? -1;
       if (da !== db) return da - db;
       return (a.start_time || "").localeCompare(b.start_time || "");
     });
-    if (!sorted.length) {
+    const preview = all.slice(0, PREVIEW_CELEBRATIONS);
+
+    if (!all.length) {
       const li = document.createElement("li");
-      li.textContent = "Pas de célébration enregistrée.";
+      li.className = "no-celebrations";
+      li.textContent = "Aucun horaire importé pour ce lieu.";
       cels.appendChild(li);
     }
-    for (const cel of sorted) {
+    for (const cel of preview) {
       const li = document.createElement("li");
       const time = document.createElement("span");
       time.className = "time";
@@ -228,6 +239,12 @@ function renderList() {
       }
       cels.appendChild(li);
     }
+    if (all.length > PREVIEW_CELEBRATIONS) {
+      const more = document.createElement("li");
+      more.className = "more-celebrations";
+      more.textContent = `+ ${all.length - PREVIEW_CELEBRATIONS} autres horaires →`;
+      cels.appendChild(more);
+    }
 
     const link = node.querySelector(".website");
     if (c.website) {
@@ -240,20 +257,30 @@ function renderList() {
       node.querySelector(".distance").textContent = `${item.distance_km} km`;
     }
 
-    // Make the whole card a link to the detail page, except for the
-    // explicit website link which keeps its native external behavior.
+    // Dedicated "Fiche →" link — the only way to open the detail page now
+    // that clicking the card itself focuses the map.
+    const footer = node.querySelector(".card-footer");
+    const detail = document.createElement("a");
+    detail.className = "detail-link";
+    detail.href = `church.html?id=${c.id}`;
+    detail.textContent = "Fiche →";
+    footer.insertBefore(detail, footer.firstChild);
+
+    // Clicking anywhere on the card (except an explicit link) focuses the
+    // pin on the map and opens its popup. The map auto-shows if hidden.
     const card = node.querySelector(".card");
     card.dataset.churchId = c.id;
     card.style.cursor = "pointer";
     card.tabIndex = 0;
-    card.addEventListener("click", (e) => {
-      if (e.target.closest(".website")) return;
-      window.location.href = `church.html?id=${c.id}`;
-    });
+    const openMap = (e) => {
+      if (e?.target?.closest("a")) return;
+      focusOnMap(c.id);
+    };
+    card.addEventListener("click", openMap);
     card.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        window.location.href = `church.html?id=${c.id}`;
+        focusOnMap(c.id);
       }
     });
 
@@ -272,6 +299,22 @@ function highlightMarker(churchId, on) {
   if (!elNode) return;
   const pin = elNode.querySelector(".church-pin");
   if (pin) pin.classList.toggle("highlighted", on);
+}
+
+// Click on a list card: zoom the map onto the church and open the popup.
+// If no marker (church has no coords), fall back to the detail page.
+function focusOnMap(churchId) {
+  const marker = state.markersByChurch?.[churchId];
+  if (!marker) {
+    window.location.href = `church.html?id=${churchId}`;
+    return;
+  }
+  // Bring the map into view (no-op if already in split-mode or map view).
+  if (document.body.dataset.view !== "map") setActiveView("map");
+  setTimeout(() => {
+    state.map?.flyTo(marker.getLatLng(), 16, { duration: 0.7 });
+    marker.openPopup();
+  }, 220);
 }
 
 function renderMap() {
