@@ -192,12 +192,26 @@ function initMap(c) {
     zoomControl: true,
   }).setView([c.latitude, c.longitude], 16);
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "© OpenStreetMap",
-    maxZoom: 19,
-  }).addTo(map);
+  // Same Voyager tiles as the search page — one map style across the app.
+  L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    {
+      attribution: "© OpenStreetMap · © CARTO",
+      subdomains: "abcd",
+      maxZoom: 19,
+    },
+  ).addTo(map);
 
-  L.marker([c.latitude, c.longitude]).addTo(map).bindPopup(c.name).openPopup();
+  // Same CSS pin as the list/map view.
+  const icon = L.divIcon({
+    className: "church-marker",
+    html: '<div class="church-pin" aria-hidden="true">✚</div>',
+    iconSize: [30, 38],
+    iconAnchor: [15, 38],
+    popupAnchor: [0, -34],
+  });
+  L.marker([c.latitude, c.longitude], { icon }).addTo(map)
+    .bindPopup(c.name).openPopup();
 }
 
 // =========================================================================

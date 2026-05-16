@@ -320,7 +320,7 @@ function focusOnMap(churchId) {
 function renderMap() {
   const container = el("#map-view");
   if (!state.map) {
-    state.map = L.map(container, { zoomControl: true }).setView([46.6, 2.5], 5);
+    state.map = L.map(container, { zoomControl: true }).setView([48.8566, 2.3522], 12);
     // Minimal grayscale tiles — much less visual noise than the
     // default OSM tiles (and Leaflet's default PNG markers don't load
     // reliably through unpkg, so we use a CSS divIcon below).
