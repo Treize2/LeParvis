@@ -504,39 +504,78 @@ el("#btn-ingest-url").addEventListener("click", async () => {
 
 // ---------- Bottom nav (mobile) ------------------------------------------
 
-function switchView(target) {
-  // Programmatically click the hidden desktop toggle so its existing
-  // handler does the show/hide work — keeps a single source of truth.
-  const toggle = els(".view-toggle button").find((b) => b.dataset.view === target);
-  if (toggle) toggle.click();
-  if (target === "map") setTimeout(() => state.map?.invalidateSize(), 60);
+function showListView() {
+  el("#list-view").classList.remove("hidden");
+  el("#map-view").classList.add("hidden");
+  els(".view-toggle button").forEach((b) =>
+    b.classList.toggle("active", b.dataset.view === "list"));
 }
 
+function showMapView() {
+  el("#list-view").classList.add("hidden");
+  el("#map-view").classList.remove("hidden");
+  els(".view-toggle button").forEach((b) =>
+    b.classList.toggle("active", b.dataset.view === "map"));
+  setTimeout(() => state.map?.invalidateSize(), 60);
+}
+
+function triggerGeoloc() {
+  if (!navigator.geolocation) {
+    alert("Géolocalisation indisponible dans ce navigateur.");
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      el("#f-lat").value = lat.toFixed(5);
+      el("#f-lon").value = lon.toFixed(5);
+      if (!el("#f-radius").value) el("#f-radius").value = "10";
+      await runSearch();
+      if (state.map) {
+        try { state.map.flyTo([lat, lon], 14, { duration: 0.8 }); }
+        catch { state.map.setView([lat, lon], 14); }
+        if (state.userMarker) state.userMarker.remove();
+        state.userMarker = L.circleMarker([lat, lon], {
+          radius: 9, fillColor: "#2563eb", color: "#fff",
+          weight: 3, fillOpacity: 1,
+        }).addTo(state.map).bindPopup("Vous êtes ici");
+      }
+      showMapView();
+    },
+    (err) => alert("Géolocalisation refusée: " + err.message),
+  );
+}
+
+// Direct DOM manipulation: no programmatic .click() on hidden elements,
+// no relying on bubbling through other handlers. Try/catch so a bug
+// anywhere surfaces visibly instead of failing silently.
 els(".bottom-nav-item").forEach((btn) => {
-  // The Admin item is a real anchor — let it navigate to /admin.html.
+  // The Admin anchor really navigates; leave it alone.
   if (btn.tagName === "A" && btn.getAttribute("href") !== "/") return;
   btn.addEventListener("click", (e) => {
-    e.preventDefault();
-    const action = btn.dataset.nav;
-    setActiveBottomNav(btn);
-    if (action === "filters") {
-      openFilters();
-    } else if (action === "geoloc") {
-      el("#btn-geoloc").click();
-    } else if (action === "map") {
-      switchView("map");
-    } else if (action === "list") {
-      switchView("list");
-      // Scroll back to the top so the search bar is in view.
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    try {
+      e.preventDefault();
+      const action = btn.dataset.nav;
+      els(".bottom-nav-item").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      if (action === "filters") {
+        openFilters();
+      } else if (action === "geoloc") {
+        triggerGeoloc();
+      } else if (action === "map") {
+        showMapView();
+      } else if (action === "list") {
+        showListView();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    } catch (err) {
+      alert("Erreur menu (" + (btn.dataset.nav || "?") + ") : " + err.message);
+      console.error("Bottom-nav handler error", err);
     }
   });
 });
-
-function setActiveBottomNav(btn) {
-  els(".bottom-nav-item").forEach((b) => b.classList.remove("active"));
-  btn.classList.add("active");
-}
 
 // ---------- Boot ---------------------------------------------------------
 
