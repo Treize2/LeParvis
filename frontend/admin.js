@@ -892,6 +892,194 @@ function closeAllModals() {
 }
 
 // =========================================================================
+// Imports — history, delete, rerun, refresh-all
+// =========================================================================
+
+// Tab switching inside the import slide-over.
+$$(".import-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    const name = tab.dataset.importTab;
+    $$(".import-tab").forEach((t) => t.classList.toggle("active", t === tab));
+    $$("[data-import-panel]").forEach((p) =>
+      p.classList.toggle("hidden", p.dataset.importPanel !== name));
+    if (name === "history") loadImports();
+  });
+});
+
+const DAY_FMT = new Intl.DateTimeFormat("fr-FR", {
+  day: "2-digit", month: "2-digit", year: "2-digit",
+  hour: "2-digit", minute: "2-digit",
+});
+
+const KIND_LABEL = {
+  osm: "🗺 OSM",
+  url: "🌐 URL",
+  scheduled_refresh: "🔄 Rafraîchissement",
+  reimport: "♻️ Réimport",
+};
+
+function inputSummary(run) {
+  if (run.input_url) return run.input_url;
+  if (run.input_latitude != null && run.input_longitude != null) {
+    return `${run.input_latitude.toFixed(3)}, ${run.input_longitude.toFixed(3)} · ${run.input_radius_km ?? "?"} km`;
+  }
+  if (run.kind === "scheduled_refresh") return "Toutes les paroisses avec source_url";
+  return "—";
+}
+
+async function loadImports() {
+  const container = $("#imports-list");
+  container.innerHTML = `<p class="hint">Chargement…</p>`;
+  try {
+    const runs = await api("/api/admin/imports?limit=50");
+    $("#imports-history-count").textContent = runs.length || "";
+    if (!runs.length) {
+      container.innerHTML = `<p class="hint">Aucun import enregistré pour l'instant.</p>`;
+      return;
+    }
+    container.innerHTML = "";
+    for (const run of runs) container.appendChild(renderImportRow(run));
+  } catch (err) {
+    container.innerHTML = `<p class="hint">Erreur : ${err.message}</p>`;
+  }
+}
+
+function renderImportRow(run) {
+  const row = document.createElement("div");
+  row.className = "import-row";
+  row.dataset.runId = run.id;
+
+  const dot = document.createElement("span");
+  dot.className = `status-dot ${run.status}`;
+  dot.title = run.status;
+
+  const meta = document.createElement("div");
+  meta.className = "import-meta";
+  const dateLabel = run.started_at ? DAY_FMT.format(new Date(run.started_at)) : "—";
+  meta.innerHTML = `
+    <div class="row1">${KIND_LABEL[run.kind] ?? run.kind} · ${inputSummary(run)}</div>
+    <div class="row2">#${run.id} · ${dateLabel} · ${run.triggered_by}</div>`;
+
+  const counts = document.createElement("div");
+  counts.className = "import-counts";
+  counts.innerHTML = `
+    <span title="Paroisses créées"><strong>${run.churches_created}</strong>🆕</span>
+    <span title="Paroisses mises à jour"><strong>${run.churches_updated}</strong>♻️</span>
+    <span title="Horaires créés"><strong>${run.celebrations_created}</strong>🕐</span>
+    ${run.errors_count ? `<span title="Erreurs" style="color:#b03030"><strong>${run.errors_count}</strong>!</span>` : ""}`;
+
+  const actions = document.createElement("div");
+  actions.className = "import-actions-inline";
+  actions.innerHTML = `
+    <button type="button" class="btn-icon" data-action="detail" title="Détail">👁</button>
+    ${run.kind === "scheduled_refresh"
+      ? ""
+      : `<button type="button" class="btn-icon" data-action="rerun" title="Rejouer">↻</button>`}
+    <button type="button" class="btn-icon danger" data-action="delete" title="Supprimer (cascade)">🗑</button>`;
+
+  row.append(dot, meta, counts, actions);
+
+  // Clicks: row body opens detail; action buttons swallow the bubble.
+  actions.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    e.stopPropagation();
+    const action = btn.dataset.action;
+    if (action === "detail") openImportDetail(run.id);
+    else if (action === "rerun") rerunImport(run.id);
+    else if (action === "delete") deleteImportRun(run.id, run);
+  });
+  row.addEventListener("click", () => openImportDetail(run.id));
+  return row;
+}
+
+async function openImportDetail(runId) {
+  $("#detail-run-id").textContent = `#${runId}`;
+  $("#import-detail-body").innerHTML = `<p class="hint">Chargement…</p>`;
+  $("#import-detail-modal").classList.remove("hidden");
+  try {
+    const run = await api(`/api/admin/imports/${runId}`);
+    const body = $("#import-detail-body");
+    const errMsg = run.error_message
+      ? `<pre style="color:#b03030">${escapeHtml(run.error_message)}</pre>`
+      : "";
+    const outputJson = run.output ? `<pre>${escapeHtml(JSON.stringify(run.output, null, 2))}</pre>` : "";
+    body.innerHTML = `
+      <div class="kv">
+        <div class="k">Type</div><div>${KIND_LABEL[run.kind] ?? run.kind}</div>
+        <div class="k">Statut</div><div>${run.status}</div>
+        <div class="k">Source</div><div>${escapeHtml(inputSummary(run))}</div>
+        <div class="k">Démarré</div><div>${run.started_at ? new Date(run.started_at).toLocaleString("fr-FR") : "—"}</div>
+        <div class="k">Terminé</div><div>${run.finished_at ? new Date(run.finished_at).toLocaleString("fr-FR") : "—"}</div>
+        <div class="k">Déclenché par</div><div>${run.triggered_by}</div>
+        <div class="k">Paroisses</div><div>+${run.churches_created} créées, ${run.churches_updated} mises à jour</div>
+        <div class="k">Horaires</div><div>+${run.celebrations_created} créés, ${run.celebrations_updated} mis à jour</div>
+        <div class="k">Erreurs</div><div>${run.errors_count}</div>
+      </div>
+      ${errMsg}
+      ${outputJson}`;
+  } catch (err) {
+    $("#import-detail-body").innerHTML = `<p class="hint">Erreur : ${err.message}</p>`;
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+document.addEventListener("click", (e) => {
+  if (e.target.matches("[data-close-detail]")) {
+    $("#import-detail-modal").classList.add("hidden");
+  }
+});
+
+async function deleteImportRun(runId, run) {
+  const label = `${KIND_LABEL[run.kind] ?? run.kind} · ${inputSummary(run)}`;
+  const msg = `Supprimer cet import ?\n\n${label}\n\nCela supprimera aussi toutes les paroisses (${run.churches_created}) et horaires créés par ce run.`;
+  if (!confirm(msg)) return;
+  try {
+    const res = await api(`/api/admin/imports/${runId}`, { method: "DELETE" });
+    toast(`Supprimé : ${res.deleted_churches} paroisses, ${res.deleted_celebrations} horaires`, "success");
+    loadImports();
+    // Sidebar church list is now stale.
+    refreshChurchList?.();
+  } catch (err) {
+    toast("Suppression échouée : " + err.message, "error");
+  }
+}
+
+async function rerunImport(runId) {
+  if (!confirm("Rejouer cet import ?")) return;
+  toast("Lancement…", "info", 1800);
+  try {
+    await api(`/api/admin/imports/${runId}/rerun`, { method: "POST" });
+    toast("Import relancé", "success");
+    loadImports();
+  } catch (err) {
+    toast("Échec : " + err.message, "error");
+  }
+}
+
+$("#btn-refresh-now").addEventListener("click", async () => {
+  if (!confirm("Lancer un rafraîchissement de toutes les paroisses ?\nCela peut prendre plusieurs minutes.")) return;
+  const btn = $("#btn-refresh-now");
+  btn.disabled = true;
+  btn.textContent = "⏳ Rafraîchissement…";
+  try {
+    const res = await api("/api/admin/imports/refresh-now", { method: "POST" });
+    toast(`Refresh terminé : ${res.succeeded} ok, ${res.failed} échecs (sur ${res.churches_refreshed})`,
+          res.failed ? "info" : "success", 5000);
+    loadImports();
+  } catch (err) {
+    toast("Refresh échoué : " + err.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "🔄 Rafraîchir maintenant";
+  }
+});
+
+// =========================================================================
 // Boot
 // =========================================================================
 

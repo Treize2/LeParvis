@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LeParvis · Admin</title>
-  <link rel="stylesheet" href="admin.css" />
+  <link rel="stylesheet" href="admin.css?v=12" />
 </head>
 <body>
 
@@ -311,10 +311,21 @@
   <!-- ============= IMPORT SLIDE-OVER ============= -->
   <aside id="import-panel" class="import-panel hidden">
     <header class="import-header">
-      <h2>📥 Importer des paroisses</h2>
+      <h2>📥 Imports</h2>
       <button type="button" class="modal-close" data-close-import aria-label="Fermer">&times;</button>
     </header>
-    <div class="import-body">
+
+    <nav class="import-tabs" role="tablist">
+      <button type="button" class="import-tab active" data-import-tab="new">
+        Nouveau
+      </button>
+      <button type="button" class="import-tab" data-import-tab="history">
+        Historique
+        <span id="imports-history-count" class="tab-count"></span>
+      </button>
+    </nav>
+
+    <div class="import-body" data-import-panel="new">
 
       <section class="import-section">
         <header class="import-section-head">
@@ -403,12 +414,64 @@
         <pre id="import-output" class="code-block">—</pre>
       </section>
     </div>
+
+    <!-- Historique panel -->
+    <div class="import-body hidden" data-import-panel="history">
+      <section class="import-section history-toolbar">
+        <header class="import-section-head">
+          <span class="import-step">🔄</span>
+          <div>
+            <h3>Rafraîchir toutes les paroisses</h3>
+            <p class="hint">
+              Relance le scraper sur chaque paroisse ayant une URL source.
+              Un cron interne le fait automatiquement chaque semaine.
+            </p>
+          </div>
+        </header>
+        <div class="row import-actions">
+          <button type="button" id="btn-refresh-now" class="btn btn-secondary">
+            🔄 Rafraîchir maintenant
+          </button>
+        </div>
+      </section>
+
+      <section class="import-section">
+        <header class="import-section-head">
+          <span class="import-step">📜</span>
+          <div>
+            <h3>Imports récents</h3>
+            <p class="hint">
+              Clique sur une ligne pour voir le détail. Supprimer un import
+              efface aussi les paroisses et horaires qu'il a créés.
+            </p>
+          </div>
+        </header>
+        <div id="imports-list" class="imports-list">
+          <p class="hint">Chargement…</p>
+        </div>
+      </section>
+    </div>
   </aside>
   <div id="import-backdrop" class="backdrop hidden" data-close-import></div>
+
+  <!-- ============= IMPORT DETAIL MODAL ============= -->
+  <div id="import-detail-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close-detail></div>
+    <div class="modal-content modal-content-wide">
+      <div class="modal-header">
+        <h3>Détail de l'import <span id="detail-run-id" class="muted"></span></h3>
+        <button type="button" class="modal-close" data-close-detail aria-label="Fermer">&times;</button>
+      </div>
+      <div id="import-detail-body" class="modal-body">—</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" data-close-detail>Fermer</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ============= TOAST CONTAINER ============= -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="admin.js"></script>
+  <script src="admin.js?v=12"></script>
 </body>
 </html>
