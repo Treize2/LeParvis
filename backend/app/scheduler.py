@@ -7,10 +7,16 @@ deploy / restart loops.
 
 The job spins up its own database session — `get_db()`'s yield-style
 dependency is for FastAPI request scope only.
+
+This module also exposes runtime controls (pause / resume / reschedule /
+status) used by the admin UI, and an in-memory ring buffer of the last
+500 log records emitted by the scheduler + refresh code so the admin
+page can show them without shelling into the host.
 """
 from __future__ import annotations
 
 import asyncio
+import collections
 import logging
 from datetime import datetime, timedelta
 
@@ -22,6 +28,97 @@ from .services.refresh import refresh_all
 
 logger = logging.getLogger(__name__)
 _scheduler: BackgroundScheduler | None = None
+_JOB_ID = "leparvis_refresh"
+
+# Ring buffer of recent log records — captured from app.scheduler,
+# app.services.refresh, and app.services.imports loggers. Exposed via
+# the admin /scheduler/logs endpoint.
+_log_buffer: collections.deque[dict] = collections.deque(maxlen=500)
+_LOG_LOGGERS = ("app.scheduler", "app.services.refresh", "app.services.imports")
+_log_capture_installed = False
+
+
+class _BufferHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        _log_buffer.append({
+            "ts": datetime.utcfromtimestamp(record.created).isoformat(timespec="seconds"),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        })
+
+
+def _install_log_capture() -> None:
+    global _log_capture_installed
+    if _log_capture_installed:
+        return
+    handler = _BufferHandler()
+    handler.setLevel(logging.INFO)
+    for name in _LOG_LOGGERS:
+        lg = logging.getLogger(name)
+        lg.setLevel(logging.INFO)
+        if not any(isinstance(h, _BufferHandler) for h in lg.handlers):
+            lg.addHandler(handler)
+    _log_capture_installed = True
+
+
+def get_logs(limit: int = 200, level: str | None = None) -> list[dict]:
+    items = list(_log_buffer)
+    if level:
+        level = level.upper()
+        items = [i for i in items if i["level"] == level]
+    return items[-limit:]
+
+
+def get_status() -> dict:
+    """Snapshot of the scheduler — what the admin needs to show buttons."""
+    enabled = settings.refresh_interval_days > 0
+    base = {
+        "enabled": enabled,
+        "running": False,
+        "paused": False,
+        "interval_days": settings.refresh_interval_days,
+        "startup_delay_minutes": settings.refresh_startup_delay_minutes,
+        "next_run_at": None,
+        "job_id": _JOB_ID,
+    }
+    if _scheduler is None:
+        return base
+    base["running"] = _scheduler.running
+    job = _scheduler.get_job(_JOB_ID)
+    if job is None:
+        return base
+    base["paused"] = job.next_run_time is None
+    base["next_run_at"] = job.next_run_time.isoformat() if job.next_run_time else None
+    return base
+
+
+def pause_job() -> dict:
+    if _scheduler is None:
+        raise RuntimeError("Scheduler not running")
+    _scheduler.pause_job(_JOB_ID)
+    logger.info("Scheduler paused via admin")
+    return get_status()
+
+
+def resume_job() -> dict:
+    if _scheduler is None:
+        raise RuntimeError("Scheduler not running")
+    _scheduler.resume_job(_JOB_ID)
+    logger.info("Scheduler resumed via admin")
+    return get_status()
+
+
+def reschedule(interval_days: int) -> dict:
+    """Change the cadence at runtime. Resets state to env defaults on restart."""
+    if interval_days < 1:
+        raise ValueError("interval_days must be >= 1")
+    if _scheduler is None:
+        raise RuntimeError("Scheduler not running")
+    _scheduler.reschedule_job(_JOB_ID, trigger="interval", days=interval_days)
+    settings.refresh_interval_days = interval_days
+    logger.info("Scheduler rescheduled to %s day(s)", interval_days)
+    return get_status()
 
 
 def _job() -> None:
@@ -43,6 +140,7 @@ def _job() -> None:
 
 def start_scheduler() -> None:
     global _scheduler
+    _install_log_capture()
     if _scheduler is not None:
         return
     days = settings.refresh_interval_days
@@ -57,7 +155,7 @@ def start_scheduler() -> None:
         "interval",
         days=days,
         next_run_time=next_run,
-        id="leparvis_refresh",
+        id=_JOB_ID,
         replace_existing=True,
         max_instances=1,  # don't pile up if a run takes too long
         coalesce=True,

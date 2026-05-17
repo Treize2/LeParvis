@@ -207,3 +207,27 @@ class RefreshReport(BaseModel):
     churches_refreshed: int
     succeeded: int
     failed: int
+
+
+# ---------- Scheduler -------------------------------------------------------
+
+
+class SchedulerStatus(BaseModel):
+    enabled: bool
+    running: bool
+    paused: bool
+    interval_days: int
+    startup_delay_minutes: int
+    next_run_at: datetime | None = None
+    job_id: str
+
+
+class SchedulerUpdate(BaseModel):
+    interval_days: int = Field(ge=1, le=365)
+
+
+class LogEntry(BaseModel):
+    ts: str
+    level: str
+    logger: str
+    message: str

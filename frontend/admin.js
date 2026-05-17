@@ -696,6 +696,8 @@ function switchView(name) {
   $$(".view").forEach((v) =>
     v.classList.toggle("hidden", v.id !== `view-${name}`));
   if (name === "imports") loadImports();
+  if (name === "scheduler") openSchedulerView();
+  else stopSchedulerAutoRefresh();
 }
 
 $$(".admin-nav-item").forEach((btn) => {
@@ -1018,6 +1020,18 @@ async function openImportDetail(runId) {
       ? `<pre style="color:#b03030">${escapeHtml(run.error_message)}</pre>`
       : "";
     const outputJson = run.output ? `<pre>${escapeHtml(JSON.stringify(run.output, null, 2))}</pre>` : "";
+
+    // Refresh-all runs have children (one per church). Fetch + render them.
+    let childrenHtml = "";
+    if (run.kind === "scheduled_refresh") {
+      try {
+        const children = await api(`/api/admin/imports/${runId}/children`);
+        childrenHtml = renderChildRuns(children);
+      } catch (err) {
+        childrenHtml = `<p class="hint">Impossible de charger les enfants : ${err.message}</p>`;
+      }
+    }
+
     body.innerHTML = `
       <div class="kv">
         <div class="k">Type</div><div>${KIND_LABEL[run.kind] ?? run.kind}</div>
@@ -1031,10 +1045,38 @@ async function openImportDetail(runId) {
         <div class="k">Erreurs</div><div>${run.errors_count}</div>
       </div>
       ${errMsg}
+      ${childrenHtml}
       ${outputJson}`;
   } catch (err) {
     $("#import-detail-body").innerHTML = `<p class="hint">Erreur : ${err.message}</p>`;
   }
+}
+
+function renderChildRuns(children) {
+  if (!children.length) {
+    return `<div class="child-runs"><h4>Enfants</h4><p class="hint">Aucun enfant.</p></div>`;
+  }
+  const rows = children.map((c) => {
+    const status = `<span class="status-dot ${c.status}"></span>`;
+    const counts = `+${c.celebrations_created}🕐 ${c.errors_count ? `· ${c.errors_count}!` : ""}`;
+    const err = c.error_message
+      ? `<div class="error">${escapeHtml(c.error_message)}</div>`
+      : "";
+    return `
+      <div class="child-row">
+        <div>${status}</div>
+        <div class="url" title="${escapeHtml(c.input_url || "")}">${escapeHtml(c.input_url || "—")}</div>
+        <div class="counts">${counts}</div>
+        ${err}
+      </div>`;
+  }).join("");
+  const failed = children.filter((c) => c.status === "error").length;
+  const ok = children.filter((c) => c.status === "success").length;
+  return `
+    <div class="child-runs">
+      <h4>Enfants (${children.length} · ${ok} OK · ${failed} échecs)</h4>
+      ${rows}
+    </div>`;
 }
 
 function escapeHtml(s) {
@@ -1091,6 +1133,219 @@ $("#btn-refresh-now").addEventListener("click", async () => {
     btn.disabled = false;
     btn.textContent = "🔄 Rafraîchir maintenant";
   }
+});
+
+// =========================================================================
+// Scheduler view — status, controls, recent cycles, logs
+// =========================================================================
+
+let _schedAutoRefreshTimer = null;
+let _schedStatus = null;
+
+function openSchedulerView() {
+  loadSchedulerStatus();
+  loadScheduledRuns();
+  loadSchedulerLogs();
+  if ($("#sched-logs-auto")?.checked) startSchedulerAutoRefresh();
+}
+
+function stopSchedulerAutoRefresh() {
+  if (_schedAutoRefreshTimer) {
+    clearInterval(_schedAutoRefreshTimer);
+    _schedAutoRefreshTimer = null;
+  }
+}
+function startSchedulerAutoRefresh() {
+  stopSchedulerAutoRefresh();
+  _schedAutoRefreshTimer = setInterval(() => {
+    if ($("#view-scheduler").classList.contains("hidden")) {
+      stopSchedulerAutoRefresh();
+      return;
+    }
+    loadSchedulerLogs();
+    loadSchedulerStatus();
+  }, 5000);
+}
+
+function formatTimeUntil(iso) {
+  if (!iso) return "—";
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return "imminent";
+  const m = Math.floor(ms / 60000);
+  if (m < 60) return `dans ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 48) return `dans ${h} h`;
+  const d = Math.floor(h / 24);
+  return `dans ${d} j`;
+}
+
+async function loadSchedulerStatus() {
+  try {
+    const s = await api("/api/admin/scheduler");
+    _schedStatus = s;
+    renderSchedulerStatus(s);
+  } catch (err) {
+    $("#sched-status-label").textContent = "Erreur : " + err.message;
+    $("#sched-status-dot").className = "status-dot error";
+  }
+}
+
+function renderSchedulerStatus(s) {
+  const dot = $("#sched-status-dot");
+  const label = $("#sched-status-label");
+  const detail = $("#sched-status-detail");
+  const toggle = $("#btn-sched-toggle");
+
+  if (!s.enabled) {
+    dot.className = "status-dot error";
+    label.textContent = "Désactivé";
+    detail.textContent = "LEPARVIS_REFRESH_INTERVAL_DAYS est à 0 sur le serveur.";
+    $("#sched-disabled-warning").classList.remove("hidden");
+    toggle.disabled = true;
+    $("#btn-sched-interval").disabled = true;
+  } else if (!s.running) {
+    dot.className = "status-dot error";
+    label.textContent = "Arrêté";
+    detail.textContent = "Le planificateur n'est pas démarré.";
+    toggle.disabled = true;
+  } else if (s.paused) {
+    dot.className = "status-dot partial";
+    label.textContent = "En pause";
+    detail.textContent = "Aucun cycle ne sera lancé tant qu'on n'a pas repris.";
+    toggle.textContent = "▶ Reprendre";
+    toggle.disabled = false;
+  } else {
+    dot.className = "status-dot success";
+    label.textContent = "Actif";
+    detail.textContent = `Cycle automatique chaque ${s.interval_days} j.`;
+    toggle.textContent = "⏸ Mettre en pause";
+    toggle.disabled = false;
+  }
+
+  $("#sched-next-run").textContent = s.next_run_at
+    ? `${new Date(s.next_run_at).toLocaleString("fr-FR")} (${formatTimeUntil(s.next_run_at)})`
+    : "—";
+  $("#sched-interval").textContent = `${s.interval_days} j`;
+}
+
+$("#btn-sched-reload").addEventListener("click", () => {
+  loadSchedulerStatus();
+  loadScheduledRuns();
+});
+
+$("#btn-sched-toggle").addEventListener("click", async () => {
+  if (!_schedStatus) return;
+  const path = _schedStatus.paused ? "resume" : "pause";
+  try {
+    const s = await api(`/api/admin/scheduler/${path}`, { method: "POST" });
+    _schedStatus = s;
+    renderSchedulerStatus(s);
+    toast(s.paused ? "Planificateur en pause" : "Planificateur repris", "success");
+  } catch (err) {
+    toast("Erreur : " + err.message, "error");
+  }
+});
+
+$("#btn-sched-runnow").addEventListener("click", async () => {
+  if (!confirm("Lancer un cycle de rafraîchissement maintenant ?\nCela peut prendre plusieurs minutes.")) return;
+  const btn = $("#btn-sched-runnow");
+  btn.disabled = true;
+  btn.textContent = "⏳ En cours…";
+  try {
+    const res = await api("/api/admin/imports/refresh-now", { method: "POST" });
+    toast(`Cycle terminé : ${res.succeeded} ok, ${res.failed} échecs (sur ${res.churches_refreshed})`,
+          res.failed ? "info" : "success", 5000);
+    loadScheduledRuns();
+    loadSchedulerStatus();
+  } catch (err) {
+    toast("Échec : " + err.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "▶ Lancer maintenant";
+  }
+});
+
+// Interval modal
+$("#btn-sched-interval").addEventListener("click", () => {
+  if (_schedStatus) $("#sched-interval-input").value = _schedStatus.interval_days || 7;
+  $("#sched-interval-modal").classList.remove("hidden");
+});
+document.addEventListener("click", (e) => {
+  if (e.target.matches("[data-close-interval]")) {
+    $("#sched-interval-modal").classList.add("hidden");
+  }
+});
+$("#btn-sched-interval-save").addEventListener("click", async () => {
+  const days = parseInt($("#sched-interval-input").value, 10);
+  if (!Number.isFinite(days) || days < 1) {
+    toast("Intervalle invalide", "error");
+    return;
+  }
+  try {
+    const s = await api("/api/admin/scheduler", {
+      method: "PATCH",
+      body: JSON.stringify({ interval_days: days }),
+    });
+    _schedStatus = s;
+    renderSchedulerStatus(s);
+    $("#sched-interval-modal").classList.add("hidden");
+    toast(`Intervalle changé à ${days} j (volatile)`, "success");
+  } catch (err) {
+    toast("Échec : " + err.message, "error");
+  }
+});
+
+// Recent cycles
+async function loadScheduledRuns() {
+  const container = $("#sched-runs-list");
+  container.innerHTML = `<p class="hint">Chargement…</p>`;
+  try {
+    const runs = await api("/api/admin/imports?kind=scheduled_refresh&limit=30");
+    $("#sched-runs-count").textContent = runs.length || "";
+    if (!runs.length) {
+      container.innerHTML = `<p class="hint">Aucun cycle exécuté pour l'instant.</p>`;
+    } else {
+      container.innerHTML = "";
+      for (const run of runs) container.appendChild(renderImportRow(run));
+    }
+    // Use the most recent finished run as "Dernier cycle".
+    const last = runs.find((r) => r.finished_at);
+    $("#sched-last-run").textContent = last
+      ? `${new Date(last.finished_at).toLocaleString("fr-FR")} · ${last.status}`
+      : "—";
+  } catch (err) {
+    container.innerHTML = `<p class="hint">Erreur : ${err.message}</p>`;
+  }
+}
+$("#btn-sched-runs-reload").addEventListener("click", loadScheduledRuns);
+
+// Logs
+async function loadSchedulerLogs() {
+  const container = $("#sched-logs");
+  const level = $("#sched-logs-level").value;
+  const params = new URLSearchParams({ limit: "300" });
+  if (level) params.set("level", level);
+  try {
+    const logs = await api(`/api/admin/scheduler/logs?${params}`);
+    if (!logs.length) {
+      container.innerHTML = `<p class="log-empty">Aucune ligne pour ce filtre.</p>`;
+      return;
+    }
+    container.innerHTML = logs.map((l) => {
+      const time = l.ts.slice(11) || l.ts;  // hh:mm:ss only
+      return `<div class="log-line"><span class="ts">${escapeHtml(l.ts)}</span><span class="lvl-${l.level}">${l.level}</span><span class="msg">${escapeHtml(l.message)}</span></div>`;
+    }).join("");
+    // Scroll to bottom (tail).
+    container.scrollTop = container.scrollHeight;
+  } catch (err) {
+    container.innerHTML = `<p class="log-empty">Erreur : ${err.message}</p>`;
+  }
+}
+$("#sched-logs-level").addEventListener("change", loadSchedulerLogs);
+$("#btn-sched-logs-reload").addEventListener("click", loadSchedulerLogs);
+$("#sched-logs-auto").addEventListener("change", (e) => {
+  if (e.target.checked) startSchedulerAutoRefresh();
+  else stopSchedulerAutoRefresh();
 });
 
 // =========================================================================

@@ -18,8 +18,11 @@ from ..schemas import (
     ChurchUpdate,
     ImportRunDetail,
     ImportRunOut,
+    LogEntry,
     MergeReport,
     RefreshReport,
+    SchedulerStatus,
+    SchedulerUpdate,
 )
 from ..scrapers import IngestionPipeline
 from ..scrapers.paroisse_html import ParoisseHtmlScraper
@@ -402,3 +405,47 @@ async def refresh_now(db: Session = Depends(get_db)):
         succeeded=succeeded,
         failed=failed,
     )
+
+
+# ---- Scheduler ------------------------------------------------------------
+
+
+@router.get("/scheduler", response_model=SchedulerStatus)
+def scheduler_status():
+    from ..scheduler import get_status
+    return get_status()
+
+
+@router.post("/scheduler/pause", response_model=SchedulerStatus)
+def scheduler_pause():
+    from ..scheduler import pause_job
+    try:
+        return pause_job()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/scheduler/resume", response_model=SchedulerStatus)
+def scheduler_resume():
+    from ..scheduler import resume_job
+    try:
+        return resume_job()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.patch("/scheduler", response_model=SchedulerStatus)
+def scheduler_reschedule(payload: SchedulerUpdate):
+    """Change the cadence at runtime. The change is volatile — it resets to
+    LEPARVIS_REFRESH_INTERVAL_DAYS on next server restart."""
+    from ..scheduler import reschedule
+    try:
+        return reschedule(payload.interval_days)
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/scheduler/logs", response_model=list[LogEntry])
+def scheduler_logs(limit: int = 200, level: str | None = None):
+    from ..scheduler import get_logs
+    return get_logs(limit=limit, level=level)

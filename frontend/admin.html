@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LeParvis · Admin</title>
-  <link rel="stylesheet" href="admin.css?v=13" />
+  <link rel="stylesheet" href="admin.css?v=14" />
 </head>
 <body>
 
@@ -47,6 +47,9 @@
         </button>
         <button type="button" class="admin-nav-item" data-view="imports">
           📥 <span>Imports</span>
+        </button>
+        <button type="button" class="admin-nav-item" data-view="scheduler">
+          ⏱ <span>Planificateur</span>
         </button>
       </nav>
 
@@ -404,6 +407,128 @@
     </div>
     <!-- /view-imports -->
 
+    <!-- ============= VIEW: SCHEDULER ============= -->
+    <div id="view-scheduler" class="view hidden">
+      <div class="page">
+        <header class="page-header">
+          <div>
+            <h2>⏱ Planificateur</h2>
+            <p class="hint">Rafraîchissement automatique des paroisses. Géré en mémoire — réinitialisé au redémarrage.</p>
+          </div>
+          <div class="page-actions">
+            <button type="button" id="btn-sched-reload" class="btn btn-ghost btn-sm" title="Recharger">↻</button>
+          </div>
+        </header>
+
+        <!-- Status card -->
+        <section class="page-section sched-status-card">
+          <div class="sched-status-main">
+            <div class="sched-status-headline">
+              <span id="sched-status-dot" class="status-dot pending"></span>
+              <span id="sched-status-label" class="sched-status-label">Chargement…</span>
+            </div>
+            <div id="sched-status-detail" class="sched-status-detail muted"></div>
+          </div>
+          <div class="sched-status-grid">
+            <div class="kv-cell">
+              <div class="k">Prochain cycle</div>
+              <div class="v" id="sched-next-run">—</div>
+            </div>
+            <div class="kv-cell">
+              <div class="k">Intervalle</div>
+              <div class="v" id="sched-interval">—</div>
+            </div>
+            <div class="kv-cell">
+              <div class="k">Dernier cycle</div>
+              <div class="v" id="sched-last-run">—</div>
+            </div>
+          </div>
+          <div class="sched-actions">
+            <button type="button" id="btn-sched-toggle" class="btn btn-primary">⏸ Mettre en pause</button>
+            <button type="button" id="btn-sched-runnow" class="btn btn-secondary">▶ Lancer maintenant</button>
+            <button type="button" id="btn-sched-interval" class="btn btn-ghost">⚙ Changer l'intervalle</button>
+          </div>
+          <p id="sched-disabled-warning" class="hint warn-banner hidden">
+            ⚠ Planificateur désactivé sur le serveur (LEPARVIS_REFRESH_INTERVAL_DAYS=0).
+            Les commandes ci-dessus ne fonctionneront pas tant que la variable d'environnement n'est pas définie.
+          </p>
+        </section>
+
+        <!-- Recent cycles -->
+        <section class="page-section">
+          <div class="section-head">
+            <h3>Derniers cycles
+              <span id="sched-runs-count" class="tab-count"></span>
+            </h3>
+            <div class="section-head-actions">
+              <button type="button" id="btn-sched-runs-reload" class="btn btn-ghost btn-sm" title="Recharger">↻</button>
+            </div>
+          </div>
+          <p class="hint section-hint">
+            Chaque ligne est un rafraîchissement complet. Clique pour voir les enfants
+            (une ligne par paroisse) avec leurs erreurs et créneaux ajoutés.
+          </p>
+          <div id="sched-runs-list" class="imports-list">
+            <p class="hint">Chargement…</p>
+          </div>
+        </section>
+
+        <!-- Logs -->
+        <section class="page-section">
+          <div class="section-head">
+            <h3>Logs récents</h3>
+            <div class="section-head-actions">
+              <select id="sched-logs-level" class="filter-select">
+                <option value="">Tous</option>
+                <option value="INFO">INFO</option>
+                <option value="WARNING">WARNING</option>
+                <option value="ERROR">ERROR</option>
+              </select>
+              <label class="checkbox-inline">
+                <input type="checkbox" id="sched-logs-auto" />
+                <span>Auto-refresh (5 s)</span>
+              </label>
+              <button type="button" id="btn-sched-logs-reload" class="btn btn-ghost btn-sm" title="Recharger">↻</button>
+            </div>
+          </div>
+          <p class="hint section-hint">
+            500 dernières lignes capturées en mémoire pour
+            <code>app.scheduler</code>, <code>app.services.refresh</code> et
+            <code>app.services.imports</code>.
+          </p>
+          <div id="sched-logs" class="log-viewer">
+            <p class="hint">Chargement…</p>
+          </div>
+        </section>
+      </div>
+    </div>
+    <!-- /view-scheduler -->
+
+  </div>
+
+  <!-- ============= INTERVAL MODAL ============= -->
+  <div id="sched-interval-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close-interval></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Changer l'intervalle</h3>
+        <button type="button" class="modal-close" data-close-interval aria-label="Fermer">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>
+          <span>Intervalle (jours)</span>
+          <input id="sched-interval-input" type="number" min="1" max="365" step="1" value="7" />
+        </label>
+        <p class="hint">
+          Volatile : la valeur retombera à <code>LEPARVIS_REFRESH_INTERVAL_DAYS</code>
+          au prochain redémarrage du serveur.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" data-close-interval>Annuler</button>
+        <button type="button" class="btn btn-primary" id="btn-sched-interval-save">Enregistrer</button>
+      </div>
+    </div>
   </div>
 
   <!-- ============= MERGE MODAL ============= -->
@@ -468,6 +593,6 @@
   <!-- ============= TOAST CONTAINER ============= -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="admin.js?v=13"></script>
+  <script src="admin.js?v=14"></script>
 </body>
 </html>
