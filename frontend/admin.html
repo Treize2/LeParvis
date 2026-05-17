@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LeParvis · Admin</title>
-  <link rel="stylesheet" href="admin.css?v=14" />
+  <link rel="stylesheet" href="admin.css?v=15" />
 </head>
 <body>
 
@@ -508,23 +508,20 @@
 
   <!-- ============= INTERVAL MODAL ============= -->
   <div id="sched-interval-modal" class="modal hidden">
-    <div class="modal-backdrop" data-close-interval></div>
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Changer l'intervalle</h3>
+    <div class="modal-card">
+      <header class="modal-header">
+        <h2>Changer l'intervalle</h2>
         <button type="button" class="modal-close" data-close-interval aria-label="Fermer">&times;</button>
-      </div>
-      <div class="modal-body">
-        <label>
-          <span>Intervalle (jours)</span>
-          <input id="sched-interval-input" type="number" min="1" max="365" step="1" value="7" />
-        </label>
-        <p class="hint">
-          Volatile : la valeur retombera à <code>LEPARVIS_REFRESH_INTERVAL_DAYS</code>
-          au prochain redémarrage du serveur.
-        </p>
-      </div>
-      <div class="modal-footer">
+      </header>
+      <label>
+        <span>Intervalle (jours)</span>
+        <input id="sched-interval-input" type="number" min="1" max="365" step="1" value="7" />
+      </label>
+      <p class="hint">
+        Volatile : la valeur retombera à <code>LEPARVIS_REFRESH_INTERVAL_DAYS</code>
+        au prochain redémarrage du serveur.
+      </p>
+      <div class="modal-actions">
         <button type="button" class="btn btn-ghost" data-close-interval>Annuler</button>
         <button type="button" class="btn btn-primary" id="btn-sched-interval-save">Enregistrer</button>
       </div>
@@ -577,14 +574,13 @@
 
   <!-- ============= IMPORT DETAIL MODAL ============= -->
   <div id="import-detail-modal" class="modal hidden">
-    <div class="modal-backdrop" data-close-detail></div>
-    <div class="modal-content modal-content-wide">
-      <div class="modal-header">
-        <h3>Détail de l'import <span id="detail-run-id" class="muted"></span></h3>
+    <div class="modal-card modal-large">
+      <header class="modal-header">
+        <h2>Détail de l'import <span id="detail-run-id" class="muted"></span></h2>
         <button type="button" class="modal-close" data-close-detail aria-label="Fermer">&times;</button>
-      </div>
+      </header>
       <div id="import-detail-body" class="modal-body">—</div>
-      <div class="modal-footer">
+      <div class="modal-actions">
         <button type="button" class="btn btn-ghost" data-close-detail>Fermer</button>
       </div>
     </div>
@@ -593,6 +589,6 @@
   <!-- ============= TOAST CONTAINER ============= -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="admin.js?v=14"></script>
+  <script src="admin.js?v=15"></script>
 </body>
 </html>

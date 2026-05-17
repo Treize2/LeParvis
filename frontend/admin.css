@@ -1245,10 +1245,11 @@ code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
 .import-actions-inline .btn-icon:hover { background: var(--paper-2); border-color: var(--accent); }
 .import-actions-inline .btn-icon.danger:hover { color: #b03030; border-color: #b03030; }
 
-.modal-content-wide { max-width: 720px; width: 95vw; }
 #import-detail-body {
-  max-height: 60vh;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  padding: 4px 0;
 }
 #import-detail-body pre {
   background: var(--paper-2);
