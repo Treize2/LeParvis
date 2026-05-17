@@ -6,12 +6,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api import admin, celebrations, churches, ingest, meta, search, suggestions
 from .config import settings
 from .database import init_db
+from .scheduler import start_scheduler, stop_scheduler
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    yield
+    start_scheduler()
+    try:
+        yield
+    finally:
+        stop_scheduler()
 
 
 app = FastAPI(

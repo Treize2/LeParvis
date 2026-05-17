@@ -15,8 +15,13 @@ from .base import ScrapedCelebration, ScrapedChurch, ScrapeResult
 class IngestionPipeline:
     """Persist a stream of `ScrapeResult` into the database, with traceability."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, run_id: int | None = None):
         self.db = db
+        # When set, every Church/Celebration created by this pipeline is
+        # tagged with `created_by_import_id = run_id`. Lets the admin
+        # cascade-delete just the rows produced by a specific import.
+        self.run_id = run_id
+        self.fetched = 0
         self.created_churches = 0
         self.updated_churches = 0
         self.created_celebrations = 0
@@ -25,6 +30,8 @@ class IngestionPipeline:
         self.samples: list[dict] = []
 
     def run(self, results: Iterable[ScrapeResult]) -> None:
+        results = list(results)
+        self.fetched += len(results)
         for result in results:
             try:
                 church = self._upsert_church(result.church)
@@ -71,7 +78,7 @@ class IngestionPipeline:
                     select(Church.id).where(Church.slug == s)
                 ).first() is not None,
             )
-            church = Church(slug=slug)
+            church = Church(slug=slug, created_by_import_id=self.run_id)
             self.db.add(church)
             self.created_churches += 1
         else:
@@ -121,6 +128,7 @@ class IngestionPipeline:
                 source=scraped.source,
                 source_url=scraped.source_url,
                 last_seen_at=datetime.utcnow(),
+                created_by_import_id=self.run_id,
             )
             self.db.add(celebration)
             self.created_celebrations += 1

@@ -10,16 +10,21 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..auth import require_admin
 from ..database import get_db
-from ..models import Celebration, Church, Suggestion
+from ..models import Celebration, Church, ImportRun, Suggestion
 from ..schemas import (
     CelebrationOut,
     CelebrationUpdate,
     ChurchDetail,
     ChurchUpdate,
+    ImportRunDetail,
+    ImportRunOut,
     MergeReport,
+    RefreshReport,
 )
 from ..scrapers import IngestionPipeline
 from ..scrapers.paroisse_html import ParoisseHtmlScraper
+from ..services.imports import cascade_delete_run, track_import
+from ..services.refresh import refresh_all
 
 router = APIRouter(
     prefix="/api/admin",
@@ -266,3 +271,134 @@ def review_suggestion(
     suggestion.status = "approved" if action == "approve" else "rejected"
     db.commit()
     return {"id": suggestion.id, "status": suggestion.status}
+
+
+# ---- Imports --------------------------------------------------------------
+
+
+@router.get("/imports", response_model=list[ImportRunOut])
+def list_imports(
+    status: str | None = None,
+    kind: str | None = None,
+    parent_only: bool = True,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    """List recent import runs, newest first.
+
+    Defaults to top-level runs (children of a scheduled refresh stay hidden
+    unless `parent_only=false`)."""
+    stmt = select(ImportRun).order_by(ImportRun.started_at.desc()).limit(limit)
+    if parent_only:
+        stmt = stmt.where(ImportRun.parent_run_id.is_(None))
+    if status:
+        stmt = stmt.where(ImportRun.status == status)
+    if kind:
+        stmt = stmt.where(ImportRun.kind == kind)
+    return db.execute(stmt).scalars().all()
+
+
+@router.get("/imports/{run_id}", response_model=ImportRunDetail)
+def get_import(run_id: int, db: Session = Depends(get_db)):
+    run = db.get(ImportRun, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Import run not found")
+    return run
+
+
+@router.get("/imports/{run_id}/children", response_model=list[ImportRunOut])
+def list_import_children(run_id: int, db: Session = Depends(get_db)):
+    parent = db.get(ImportRun, run_id)
+    if parent is None:
+        raise HTTPException(status_code=404, detail="Import run not found")
+    return db.execute(
+        select(ImportRun)
+        .where(ImportRun.parent_run_id == run_id)
+        .order_by(ImportRun.started_at.asc())
+    ).scalars().all()
+
+
+@router.delete("/imports/{run_id}", status_code=200)
+def delete_import(run_id: int, db: Session = Depends(get_db)):
+    """Cascade-delete: removes the run, every church it created, every
+    standalone celebration it added, and any child runs (recursively)."""
+    run = db.get(ImportRun, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Import run not found")
+    summary = cascade_delete_run(db, run)
+    return {
+        "deleted_run_id": run_id,
+        "deleted_churches": summary["churches"],
+        "deleted_celebrations": summary["celebrations"],
+    }
+
+
+@router.post("/imports/{run_id}/rerun", response_model=ImportRunOut)
+async def rerun_import(run_id: int, db: Session = Depends(get_db)):
+    """Replay the same input as a previous run, recording a new ImportRun.
+
+    Only `osm` and `url` kinds can be replayed directly. For
+    `scheduled_refresh`, use POST /imports/refresh-now instead.
+    """
+    run = db.get(ImportRun, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Import run not found")
+
+    if run.kind == "osm":
+        from ..schemas import IngestArea
+        from .ingest import _ingest_area  # local import to avoid cycle
+
+        await _ingest_area(
+            IngestArea(
+                latitude=run.input_latitude or 0.0,
+                longitude=run.input_longitude or 0.0,
+                radius_km=run.input_radius_km or 10.0,
+                limit=run.input_limit or 25,
+            ),
+            db,
+        )
+    elif run.kind == "url":
+        if not run.input_url:
+            raise HTTPException(status_code=400, detail="Run has no URL to replay")
+        from ..schemas import IngestUrlRequest
+        from .ingest import ingest_url  # local import to avoid cycle
+
+        await ingest_url(
+            IngestUrlRequest(
+                url=run.input_url,
+                render=run.input_render,
+                force=run.input_force,
+                hint_type=run.input_hint_type,
+            ),
+            db,
+        )
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot rerun a {run.kind} run. Use refresh-now for batch refreshes.",
+        )
+
+    # The newest run is the one we just created.
+    newest = db.execute(
+        select(ImportRun).order_by(ImportRun.id.desc()).limit(1)
+    ).scalar_one()
+    return newest
+
+
+@router.post("/imports/refresh-now", response_model=RefreshReport)
+async def refresh_now(db: Session = Depends(get_db)):
+    """Trigger an immediate batch refresh of every imported parish.
+
+    Same code path as the scheduled job (just triggered_by='admin').
+    Returns the parent run + per-status counts.
+    """
+    parent = await refresh_all(db, triggered_by="admin")
+    children = db.query(ImportRun).filter(ImportRun.parent_run_id == parent.id).all()
+    succeeded = sum(1 for c in children if c.status == "success")
+    failed = sum(1 for c in children if c.status == "error")
+    return RefreshReport(
+        parent_run_id=parent.id,
+        churches_refreshed=len(children),
+        succeeded=succeeded,
+        failed=failed,
+    )

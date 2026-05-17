@@ -9,33 +9,45 @@ from ..scrapers.paroisse_html import ParoisseHtmlScraper
 from ..scrapers.parsers.jsonld_parser import parse_jsonld_events
 from ..scrapers.parsers.time_parser import parse_schedule
 from ..scrapers.rendered_html import RenderedHtmlScraper, url_likely_needs_rendering
+from ..services.imports import track_import
 
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
 
 
 async def _ingest_area(area: IngestArea, db: Session) -> IngestReport:
-    pipeline = IngestionPipeline(db)
-    fetched = 0
-    try:
-        async with OsmOverpassScraper() as scraper:
-            results = list(await scraper.fetch(
-                latitude=area.latitude,
-                longitude=area.longitude,
-                radius_km=area.radius_km,
-                limit=area.limit,
-            ))
-        fetched = len(results)
-        pipeline.run(results)
-    except Exception as exc:  # noqa: BLE001
-        pipeline.errors.append(str(exc))
+    async def runner(run_id: int) -> IngestionPipeline:
+        pipeline = IngestionPipeline(db, run_id=run_id)
+        try:
+            async with OsmOverpassScraper() as scraper:
+                results = list(await scraper.fetch(
+                    latitude=area.latitude,
+                    longitude=area.longitude,
+                    radius_km=area.radius_km,
+                    limit=area.limit,
+                ))
+            pipeline.run(results)
+        except Exception as exc:  # noqa: BLE001
+            pipeline.errors.append(str(exc))
+        return pipeline
+
+    run = await track_import(
+        db,
+        kind="osm",
+        runner=runner,
+        input_latitude=area.latitude,
+        input_longitude=area.longitude,
+        input_radius_km=area.radius_km,
+        input_limit=area.limit,
+    )
+    # The pipeline lives only inside runner(); re-read counters off the run.
     return IngestReport(
-        fetched=fetched,
-        created_churches=pipeline.created_churches,
-        updated_churches=pipeline.updated_churches,
-        created_celebrations=pipeline.created_celebrations,
-        updated_celebrations=pipeline.updated_celebrations,
-        errors=pipeline.errors,
-        samples=pipeline.samples,
+        fetched=run.fetched,
+        created_churches=run.churches_created,
+        updated_churches=run.churches_updated,
+        created_celebrations=run.celebrations_created,
+        updated_celebrations=run.celebrations_updated,
+        errors=(run.output or {}).get("errors", []) or ([run.error_message] if run.error_message else []),
+        samples=(run.output or {}).get("samples", []),
     )
 
 
@@ -65,44 +77,62 @@ async def ingest_url(request: IngestUrlRequest, db: Session = Depends(get_db)):
         scraper_cls = RenderedHtmlScraper
     else:
         scraper_cls = get_scraper_for_url(request.url)
-    pipeline = IngestionPipeline(db)
-    fetched = 0
-    try:
-        async with scraper_cls() as scraper:
-            if isinstance(scraper, ParoisseHtmlScraper | RenderedHtmlScraper):
-                results = list(await scraper.fetch(
-                    request.url,
-                    hint_type=request.hint_type,
-                    force=request.force,
-                ))
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail="This URL is handled by a domain-specific scraper. Use the dedicated endpoint.",
-                )
-        fetched = len(results)
-        pipeline.run(results)
-    except PermissionError as exc:
-        # Distinct status code so the frontend can offer a "force" retry.
+
+    raised: dict[str, Exception] = {}
+
+    async def runner(run_id: int) -> IngestionPipeline:
+        pipeline = IngestionPipeline(db, run_id=run_id)
+        try:
+            async with scraper_cls() as scraper:
+                if isinstance(scraper, ParoisseHtmlScraper | RenderedHtmlScraper):
+                    results = list(await scraper.fetch(
+                        request.url,
+                        hint_type=request.hint_type,
+                        force=request.force,
+                    ))
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="This URL is handled by a domain-specific scraper. Use the dedicated endpoint.",
+                    )
+            pipeline.run(results)
+        except PermissionError as exc:
+            raised["robots"] = exc
+            pipeline.errors.append(f"robots_disallowed: {exc}")
+        except Exception as exc:  # noqa: BLE001
+            pipeline.errors.append(str(exc))
+        return pipeline
+
+    run = await track_import(
+        db,
+        kind="url",
+        runner=runner,
+        input_url=request.url,
+        input_render=request.render,
+        input_force=request.force,
+        input_hint_type=request.hint_type,
+    )
+
+    if "robots" in raised:
+        # Surface the 451 to the frontend after the run is recorded.
         raise HTTPException(
-            status_code=451,  # Unavailable For Legal Reasons — semantically closest
+            status_code=451,
             detail={
                 "error": "robots_disallowed",
                 "url": request.url,
-                "message": str(exc),
+                "message": str(raised["robots"]),
                 "hint": "Renvoie la requête avec `force=true` si tu acceptes la responsabilité.",
             },
-        ) from exc
-    except Exception as exc:  # noqa: BLE001
-        pipeline.errors.append(str(exc))
+        )
+
     return IngestReport(
-        fetched=fetched,
-        created_churches=pipeline.created_churches,
-        updated_churches=pipeline.updated_churches,
-        created_celebrations=pipeline.created_celebrations,
-        updated_celebrations=pipeline.updated_celebrations,
-        errors=pipeline.errors,
-        samples=pipeline.samples,
+        fetched=run.fetched,
+        created_churches=run.churches_created,
+        updated_churches=run.churches_updated,
+        created_celebrations=run.celebrations_created,
+        updated_celebrations=run.celebrations_updated,
+        errors=(run.output or {}).get("errors", []) or ([run.error_message] if run.error_message else []),
+        samples=(run.output or {}).get("samples", []),
     )
 
 

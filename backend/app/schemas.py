@@ -159,3 +159,51 @@ class MergeReport(BaseModel):
     moved_celebrations: int
     deleted_duplicate_celebrations: int
     deleted_church_id: int
+
+
+# ---------- Import runs -----------------------------------------------------
+
+
+class ImportRunOut(BaseModel):
+    """Row in the admin imports list."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    kind: str
+    status: str
+    triggered_by: str
+
+    input_url: str | None = None
+    input_latitude: float | None = None
+    input_longitude: float | None = None
+    input_radius_km: float | None = None
+    input_render: bool = False
+    input_force: bool = False
+
+    fetched: int = 0
+    churches_created: int = 0
+    churches_updated: int = 0
+    celebrations_created: int = 0
+    celebrations_updated: int = 0
+    errors_count: int = 0
+
+    started_at: datetime
+    finished_at: datetime | None = None
+
+
+class ImportRunDetail(ImportRunOut):
+    error_message: str | None = None
+    output: dict[str, Any] | None = None
+    parent_run_id: int | None = None
+    input_limit: int | None = None
+    input_hint_type: str | None = None
+
+
+class RefreshReport(BaseModel):
+    """Summary of a 'refresh-all' invocation."""
+
+    parent_run_id: int
+    churches_refreshed: int
+    succeeded: int
+    failed: int

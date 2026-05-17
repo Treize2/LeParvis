@@ -20,5 +20,12 @@ class Settings(BaseSettings):
     # When unset, admin is disabled and every admin call returns 503.
     admin_token: str = ""
 
+    # Background refresh of every previously-imported parish. 0 disables it
+    # (manual refresh via the admin button still works). Default = weekly.
+    refresh_interval_days: int = 7
+    # On boot the scheduler waits this long before the first run (avoids
+    # hammering the DB during a deploy / restart loop).
+    refresh_startup_delay_minutes: int = 15
+
 
 settings = Settings()
