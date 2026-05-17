@@ -196,11 +196,53 @@ code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
+  padding: 10px 20px;
   background: var(--paper);
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
+  gap: 16px;
 }
+
+/* Top-level navigation between admin views. */
+.admin-nav {
+  display: flex;
+  gap: 4px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 3px;
+}
+.admin-nav-item {
+  border: none;
+  background: transparent;
+  padding: 7px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  cursor: pointer;
+  border-radius: calc(var(--radius) - 4px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.admin-nav-item:hover { color: var(--ink); }
+.admin-nav-item.active {
+  background: var(--paper);
+  color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Each top-level view fills the remaining space below the topbar. */
+.view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+.view.hidden { display: none; }
 .brand-block {
   display: flex;
   align-items: center;
@@ -839,70 +881,156 @@ code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
 }
 
 /* =========================================================================
-   Import slide-over
+   Full-page admin views (Imports, future ones)
    ========================================================================= */
 
-.import-panel {
-  position: fixed;
-  top: 0; right: 0; bottom: 0;
-  width: min(560px, 96vw);
-  background: var(--paper);
-  z-index: 100;
+.page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow-lg);
-  animation: slide-in 0.22s ease-out;
+  gap: 22px;
+  background: var(--bg);
 }
-@keyframes slide-in {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
 }
+.page-header h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.page-header .hint { margin: 0; font-size: 13px; color: var(--ink-soft); }
+.page-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-.import-header {
+.page-section {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+.page-section.hidden { display: none; }
+
+.section-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--line);
-  flex-shrink: 0;
-  background: var(--paper-2);
+  margin-bottom: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-.import-header h2 {
+.section-head h3 {
   margin: 0;
-  font-size: 18px;
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.import-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--line);
-  background: var(--paper);
-  flex-shrink: 0;
-}
-.import-tab {
-  flex: 1;
-  padding: 12px 16px;
-  border: none;
-  background: transparent;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-muted);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  font-size: 15px;
+  color: var(--ink);
+  font-weight: 700;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  gap: 8px;
 }
-.import-tab:hover { color: var(--ink); }
-.import-tab.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
+.section-head-actions { display: flex; gap: 6px; align-items: center; }
+.section-hint { margin: 0 0 14px; color: var(--ink-muted); font-size: 12px; }
+
+.filter-select {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
 }
-.import-tab .tab-count {
+.filter-select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.btn-sm { padding: 5px 10px !important; font-size: 12px !important; }
+
+/* The three import-source cards in the "Nouvel import" section. */
+.import-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+.import-card {
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+}
+.import-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.import-card-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+.import-card-head h4 {
+  margin: 0 0 2px;
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 700;
+}
+.import-card-head .hint {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.import-card .row { display: flex; gap: 8px; margin-top: 8px; }
+.import-card label { display: block; flex: 1; }
+.import-card label.full { flex: 1 0 100%; }
+.import-card label > span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+.import-card input {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  background: var(--paper);
+}
+.import-card input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.import-report-strip {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.import-report-strip .code-block {
+  margin-top: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+/* Tab count badge (used in section heads and admin nav). */
+.tab-count {
   background: var(--paper-2);
   border: 1px solid var(--line);
   color: var(--ink-muted);
@@ -910,15 +1038,7 @@ code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
   padding: 1px 7px;
   border-radius: 10px;
   font-weight: 700;
-}
-
-.import-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 22px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
+  margin-left: 4px;
 }
 
 .imports-list {
@@ -1017,74 +1137,8 @@ code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
 }
 #import-detail-body .kv .k { color: var(--ink-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; padding-top: 3px; }
 
-.import-section,
-.import-result {
-  background: var(--paper-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 16px 18px;
-}
-
-.import-section-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.import-step {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--accent);
-  color: #fff;
-  font-weight: 700;
-  border-radius: 50%;
-  font-size: 13px;
-}
-.import-section-head h3 {
-  margin: 0 0 2px;
-  font-size: 14px;
-  color: var(--ink);
-  font-weight: 600;
-}
-.import-section-head .hint {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.import-section .row { display: flex; gap: 8px; margin-top: 8px; }
-.import-section label { display: block; flex: 1; }
-.import-section label.full { flex: 1 0 100%; }
-.import-section label > span {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ink-soft);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  margin-bottom: 4px;
-}
-.import-section input {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  font-family: inherit;
-  font-size: 14px;
-}
-.import-section input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
-  border-color: var(--accent);
-}
-
 .import-actions {
-  margin-top: 14px;
+  margin-top: 12px;
   justify-content: flex-end;
 }
 
@@ -1109,10 +1163,6 @@ code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
   cursor: pointer;
 }
 .checkbox-label span { line-height: 1.4; }
-
-.import-result .code-block {
-  margin-top: 8px;
-}
 
 /* =========================================================================
    Toasts
@@ -1211,10 +1261,12 @@ code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
     bottom: 8px;
     border-radius: var(--radius);
   }
-  .topbar { padding: 10px 14px; }
+  .topbar { padding: 8px 14px; flex-wrap: wrap; gap: 8px; }
   .api-pill { display: none; }
-  /* Import slide-over takes more of the screen on mobile */
-  .import-panel { width: 100vw; }
+  .admin-nav { order: 3; flex-basis: 100%; }
+  .admin-nav-item { flex: 1; justify-content: center; }
+  .page { padding: 16px; }
+  .page-header { flex-direction: column; align-items: stretch; }
 }
 
 @media (max-width: 480px) {

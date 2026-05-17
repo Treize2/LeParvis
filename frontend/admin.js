@@ -687,21 +687,32 @@ $("#btn-create-church").addEventListener("click", async () => {
 });
 
 // =========================================================================
-// Import slide-over (OSM area + per-URL parish)
+// Top-level view navigation (Lieux / Imports / future)
 // =========================================================================
 
-$("#btn-import").addEventListener("click", openImportPanel);
+function switchView(name) {
+  $$(".admin-nav-item").forEach((b) =>
+    b.classList.toggle("active", b.dataset.view === name));
+  $$(".view").forEach((v) =>
+    v.classList.toggle("hidden", v.id !== `view-${name}`));
+  if (name === "imports") loadImports();
+}
 
-function openImportPanel() {
-  $("#import-panel").classList.remove("hidden");
-  $("#import-backdrop").classList.remove("hidden");
-}
-function closeImportPanel() {
-  $("#import-panel").classList.add("hidden");
-  $("#import-backdrop").classList.add("hidden");
-}
-document.addEventListener("click", (e) => {
-  if (e.target.matches("[data-close-import]")) closeImportPanel();
+$$(".admin-nav-item").forEach((btn) => {
+  btn.addEventListener("click", () => switchView(btn.dataset.view));
+});
+
+// =========================================================================
+// Imports view — new-import forms + history
+// =========================================================================
+
+// Toggle the "Nouvel import" panel visibility.
+$("#btn-show-new-import").addEventListener("click", () => {
+  $("#new-import-section").classList.remove("hidden");
+  $("#new-import-section").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+$("#btn-hide-new-import").addEventListener("click", () => {
+  $("#new-import-section").classList.add("hidden");
 });
 
 // Geolocate helper
@@ -747,6 +758,7 @@ $("#btn-import-osm").addEventListener("click", async () => {
     );
     toast(`OSM : ${report.created_churches} créés, ${report.updated_churches} mis à jour`, "success", 4500);
     await refreshChurchList();
+    if (!$("#view-imports").classList.contains("hidden")) loadImports();
   } catch (err) {
     setImportReport("Erreur: " + err.message, "Échec de l'import OSM");
     toast("Erreur : " + err.message, "error", 6000);
@@ -801,6 +813,7 @@ async function importUrl(force) {
     );
     toast(`URL : ${body.created_celebrations} célébrations créées`, "success");
     await refreshChurchList();
+    if (!$("#view-imports").classList.contains("hidden")) loadImports();
   } catch (err) {
     setImportReport("Erreur: " + err.message, "Échec");
     toast("Erreur : " + err.message, "error", 6000);
@@ -866,10 +879,12 @@ async function previewUrlForImport(url) {
   }
 }
 
-// Close import on Escape
+// Hide the new-import panel on Escape (when visible inside the Imports view).
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !$("#import-panel").classList.contains("hidden")) {
-    closeImportPanel();
+  if (e.key !== "Escape") return;
+  const section = $("#new-import-section");
+  if (section && !section.classList.contains("hidden")) {
+    section.classList.add("hidden");
   }
 });
 
@@ -892,19 +907,8 @@ function closeAllModals() {
 }
 
 // =========================================================================
-// Imports — history, delete, rerun, refresh-all
+// Imports view — history table, detail, delete, rerun, refresh-all
 // =========================================================================
-
-// Tab switching inside the import slide-over.
-$$(".import-tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    const name = tab.dataset.importTab;
-    $$(".import-tab").forEach((t) => t.classList.toggle("active", t === tab));
-    $$("[data-import-panel]").forEach((p) =>
-      p.classList.toggle("hidden", p.dataset.importPanel !== name));
-    if (name === "history") loadImports();
-  });
-});
 
 const DAY_FMT = new Intl.DateTimeFormat("fr-FR", {
   day: "2-digit", month: "2-digit", year: "2-digit",
@@ -930,11 +934,16 @@ function inputSummary(run) {
 async function loadImports() {
   const container = $("#imports-list");
   container.innerHTML = `<p class="hint">Chargement…</p>`;
+  const params = new URLSearchParams({ limit: "100" });
+  const kind = $("#imports-filter-kind")?.value;
+  const status = $("#imports-filter-status")?.value;
+  if (kind) params.set("kind", kind);
+  if (status) params.set("status", status);
   try {
-    const runs = await api("/api/admin/imports?limit=50");
+    const runs = await api(`/api/admin/imports?${params}`);
     $("#imports-history-count").textContent = runs.length || "";
     if (!runs.length) {
-      container.innerHTML = `<p class="hint">Aucun import enregistré pour l'instant.</p>`;
+      container.innerHTML = `<p class="hint">Aucun import ne correspond aux filtres.</p>`;
       return;
     }
     container.innerHTML = "";
@@ -943,6 +952,11 @@ async function loadImports() {
     container.innerHTML = `<p class="hint">Erreur : ${err.message}</p>`;
   }
 }
+
+// Filter / reload bindings.
+$("#imports-filter-kind")?.addEventListener("change", loadImports);
+$("#imports-filter-status")?.addEventListener("change", loadImports);
+$("#btn-reload-imports")?.addEventListener("click", loadImports);
 
 function renderImportRow(run) {
   const row = document.createElement("div");

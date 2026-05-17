@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LeParvis · Admin</title>
-  <link rel="stylesheet" href="admin.css?v=12" />
+  <link rel="stylesheet" href="admin.css?v=13" />
 </head>
 <body>
 
@@ -40,21 +40,30 @@
           <span class="muted">Console d'administration</span>
         </div>
       </div>
+
+      <nav class="admin-nav" role="tablist">
+        <button type="button" class="admin-nav-item active" data-view="churches">
+          📋 <span>Lieux</span>
+        </button>
+        <button type="button" class="admin-nav-item" data-view="imports">
+          📥 <span>Imports</span>
+        </button>
+      </nav>
+
       <div class="topbar-actions">
         <span id="api-base-display" class="api-pill" title="URL de l'API"></span>
         <button type="button" id="btn-logout" class="btn btn-ghost">Déconnexion</button>
       </div>
     </header>
 
-    <!-- Layout -->
+    <!-- ============= VIEW: LIEUX ============= -->
+    <div id="view-churches" class="view active">
     <div class="layout">
 
       <!-- Sidebar : list of churches -->
       <aside class="sidebar">
         <div class="sidebar-header">
           <input id="admin-search" type="text" placeholder="🔍 Rechercher…" />
-          <button type="button" id="btn-import" class="btn btn-ghost btn-icon"
-                  title="Importer en masse">📥</button>
           <button type="button" id="btn-new-church" class="btn btn-ghost btn-icon"
                   title="Nouveau lieu">+</button>
         </div>
@@ -262,6 +271,139 @@
       </main>
 
     </div>
+    </div>
+    <!-- /view-churches -->
+
+    <!-- ============= VIEW: IMPORTS ============= -->
+    <div id="view-imports" class="view hidden">
+      <div class="page">
+        <header class="page-header">
+          <div>
+            <h2>📥 Imports</h2>
+            <p class="hint">Catalogue des paroisses importées et lancement de nouveaux scrapings.</p>
+          </div>
+          <div class="page-actions">
+            <button type="button" id="btn-refresh-now" class="btn btn-secondary">
+              🔄 Rafraîchir toutes les paroisses
+            </button>
+            <button type="button" id="btn-show-new-import" class="btn btn-primary">
+              + Nouvel import
+            </button>
+          </div>
+        </header>
+
+        <!-- Nouvel import (collapsed by default) -->
+        <section id="new-import-section" class="page-section hidden">
+          <div class="section-head">
+            <h3>Lancer un nouvel import</h3>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-hide-new-import">Masquer</button>
+          </div>
+          <div class="import-cards">
+
+            <article class="import-card">
+              <header class="import-card-head">
+                <span class="import-card-icon">🗺</span>
+                <div>
+                  <h4>Zone OpenStreetMap</h4>
+                  <p class="hint">Tous les lieux de culte catholiques dans un rayon. Crée les fiches sans horaires.</p>
+                </div>
+              </header>
+              <div class="row">
+                <label><span>Latitude</span><input id="import-lat" type="number" step="0.0001" placeholder="48.8530" /></label>
+                <label><span>Longitude</span><input id="import-lon" type="number" step="0.0001" placeholder="2.3499" /></label>
+              </div>
+              <div class="row">
+                <label><span>Rayon (km)</span><input id="import-radius" type="number" min="1" max="50" value="10" /></label>
+                <label><span>Limite</span><input id="import-limit" type="number" min="1" max="500" value="100" /></label>
+              </div>
+              <div class="row import-actions">
+                <button type="button" id="btn-import-geoloc" class="btn btn-secondary btn-sm">📍 Géolocaliser</button>
+                <button type="button" id="btn-import-osm" class="btn btn-primary btn-sm">🗺 Importer</button>
+              </div>
+            </article>
+
+            <article class="import-card">
+              <header class="import-card-head">
+                <span class="import-card-icon">📥</span>
+                <div>
+                  <h4>messes.info</h4>
+                  <p class="hint">URL construite depuis une ville ou code postal. Active le rendu JS si besoin.</p>
+                </div>
+              </header>
+              <label class="full">
+                <span>Ville ou code postal</span>
+                <input id="import-mi-location" type="text" placeholder="Paris, Versailles, 75004…" />
+              </label>
+              <div class="row import-actions">
+                <button type="button" id="btn-import-mi-preview" class="btn btn-secondary btn-sm">🔍 Diagnostiquer</button>
+                <button type="button" id="btn-import-mi" class="btn btn-primary btn-sm">📥 Importer</button>
+              </div>
+            </article>
+
+            <article class="import-card">
+              <header class="import-card-head">
+                <span class="import-card-icon">🌐</span>
+                <div>
+                  <h4>Site de paroisse</h4>
+                  <p class="hint">Récupère les horaires depuis l'URL de la page d'une paroisse.</p>
+                </div>
+              </header>
+              <label class="full">
+                <span>URL de la page horaires</span>
+                <input id="import-url" type="url" placeholder="https://exemple-paroisse.fr/horaires" />
+              </label>
+              <label class="checkbox-label">
+                <input id="import-url-render" type="checkbox" />
+                <span>🌐 Rendre le JavaScript (Chromium headless, ~5 s)</span>
+              </label>
+              <div class="row import-actions">
+                <button type="button" id="btn-import-preview" class="btn btn-secondary btn-sm">🔍 Diagnostiquer</button>
+                <button type="button" id="btn-import-url" class="btn btn-primary btn-sm">📥 Importer</button>
+              </div>
+            </article>
+
+          </div>
+
+          <div class="import-report-strip">
+            <span class="muted" id="import-report-hint">Aucune action lancée pour l'instant.</span>
+            <pre id="import-output" class="code-block">—</pre>
+          </div>
+        </section>
+
+        <!-- Historique -->
+        <section class="page-section">
+          <div class="section-head">
+            <h3>Historique des imports
+              <span id="imports-history-count" class="tab-count"></span>
+            </h3>
+            <div class="section-head-actions">
+              <select id="imports-filter-kind" class="filter-select">
+                <option value="">Tous les types</option>
+                <option value="osm">🗺 OSM</option>
+                <option value="url">🌐 URL</option>
+                <option value="scheduled_refresh">🔄 Rafraîchissements</option>
+              </select>
+              <select id="imports-filter-status" class="filter-select">
+                <option value="">Tous les statuts</option>
+                <option value="success">✅ Succès</option>
+                <option value="partial">⚠️ Partiel</option>
+                <option value="error">❌ Erreur</option>
+              </select>
+              <button type="button" id="btn-reload-imports" class="btn btn-ghost btn-sm" title="Recharger">↻</button>
+            </div>
+          </div>
+          <p class="hint section-hint">
+            Clique sur une ligne pour voir le détail. Supprimer un import efface aussi
+            les paroisses et horaires qu'il a créés.
+          </p>
+          <div id="imports-list" class="imports-list">
+            <p class="hint">Chargement…</p>
+          </div>
+        </section>
+      </div>
+    </div>
+    <!-- /view-imports -->
+
   </div>
 
   <!-- ============= MERGE MODAL ============= -->
@@ -308,152 +450,6 @@
     </div>
   </div>
 
-  <!-- ============= IMPORT SLIDE-OVER ============= -->
-  <aside id="import-panel" class="import-panel hidden">
-    <header class="import-header">
-      <h2>📥 Imports</h2>
-      <button type="button" class="modal-close" data-close-import aria-label="Fermer">&times;</button>
-    </header>
-
-    <nav class="import-tabs" role="tablist">
-      <button type="button" class="import-tab active" data-import-tab="new">
-        Nouveau
-      </button>
-      <button type="button" class="import-tab" data-import-tab="history">
-        Historique
-        <span id="imports-history-count" class="tab-count"></span>
-      </button>
-    </nav>
-
-    <div class="import-body" data-import-panel="new">
-
-      <section class="import-section">
-        <header class="import-section-head">
-          <span class="import-step">1</span>
-          <div>
-            <h3>Lieux dans une zone (OpenStreetMap)</h3>
-            <p class="hint">
-              Récupère tous les lieux de culte catholiques dans un rayon. Les fiches
-              sont créées <strong>sans horaires</strong> ; complète ensuite avec le
-              bouton « Réimporter horaires » sur chaque fiche.
-            </p>
-          </div>
-        </header>
-        <div class="row">
-          <label><span>Latitude</span><input id="import-lat" type="number" step="0.0001" placeholder="48.8530" /></label>
-          <label><span>Longitude</span><input id="import-lon" type="number" step="0.0001" placeholder="2.3499" /></label>
-        </div>
-        <div class="row">
-          <label><span>Rayon (km)</span><input id="import-radius" type="number" min="1" max="50" value="10" /></label>
-          <label><span>Limite</span><input id="import-limit" type="number" min="1" max="500" value="100" /></label>
-        </div>
-        <div class="row import-actions">
-          <button type="button" id="btn-import-geoloc" class="btn btn-secondary">📍 Géolocaliser</button>
-          <button type="button" id="btn-import-osm" class="btn btn-primary">🗺 Lancer l'import OSM</button>
-        </div>
-      </section>
-
-      <section class="import-section">
-        <header class="import-section-head">
-          <span class="import-step">2</span>
-          <div>
-            <h3>Depuis messes.info</h3>
-            <p class="hint">
-              Renseigne une ville ou un code postal — on construit l'URL
-              <code>messes.info/horaires/&lt;valeur&gt;</code> et on lance le scraper.
-              <strong>Note&nbsp;:</strong> messes.info charge ses horaires en
-              JavaScript (GWT-RPC) ; selon les pages, le SSR peut ne pas exposer
-              les créneaux. Utilise « Diagnostiquer » avant pour vérifier.
-            </p>
-          </div>
-        </header>
-        <label class="full">
-          <span>Ville ou code postal</span>
-          <input id="import-mi-location" type="text" placeholder="Paris, Versailles, 75004…" />
-        </label>
-        <div class="row import-actions">
-          <button type="button" id="btn-import-mi-preview" class="btn btn-secondary">🔍 Diagnostiquer</button>
-          <button type="button" id="btn-import-mi" class="btn btn-primary">📥 Importer depuis messes.info</button>
-        </div>
-      </section>
-
-      <section class="import-section">
-        <header class="import-section-head">
-          <span class="import-step">3</span>
-          <div>
-            <h3>Une paroisse via son site web</h3>
-            <p class="hint">
-              Récupère <strong>les horaires</strong> depuis la page d'une paroisse.
-              Les sites bloquant les robots peuvent être forcés via robots.txt après
-              confirmation. Pour les sites SPA (Wix, React…), active le rendu JS.
-            </p>
-          </div>
-        </header>
-        <label class="full">
-          <span>URL de la page horaires</span>
-          <input id="import-url" type="url" placeholder="https://exemple-paroisse.fr/horaires" />
-        </label>
-        <label class="checkbox-label">
-          <input id="import-url-render" type="checkbox" />
-          <span>🌐 Rendre le JavaScript (Chromium headless, plus lent ~5 s)</span>
-        </label>
-        <div class="row import-actions">
-          <button type="button" id="btn-import-preview" class="btn btn-secondary">🔍 Diagnostiquer</button>
-          <button type="button" id="btn-import-url" class="btn btn-primary">📥 Importer les horaires</button>
-        </div>
-      </section>
-
-      <section class="import-result">
-        <header class="import-section-head">
-          <span class="import-step">4</span>
-          <div>
-            <h3>Rapport</h3>
-            <p class="hint" id="import-report-hint">Aucune action lancée pour l'instant.</p>
-          </div>
-        </header>
-        <pre id="import-output" class="code-block">—</pre>
-      </section>
-    </div>
-
-    <!-- Historique panel -->
-    <div class="import-body hidden" data-import-panel="history">
-      <section class="import-section history-toolbar">
-        <header class="import-section-head">
-          <span class="import-step">🔄</span>
-          <div>
-            <h3>Rafraîchir toutes les paroisses</h3>
-            <p class="hint">
-              Relance le scraper sur chaque paroisse ayant une URL source.
-              Un cron interne le fait automatiquement chaque semaine.
-            </p>
-          </div>
-        </header>
-        <div class="row import-actions">
-          <button type="button" id="btn-refresh-now" class="btn btn-secondary">
-            🔄 Rafraîchir maintenant
-          </button>
-        </div>
-      </section>
-
-      <section class="import-section">
-        <header class="import-section-head">
-          <span class="import-step">📜</span>
-          <div>
-            <h3>Imports récents</h3>
-            <p class="hint">
-              Clique sur une ligne pour voir le détail. Supprimer un import
-              efface aussi les paroisses et horaires qu'il a créés.
-            </p>
-          </div>
-        </header>
-        <div id="imports-list" class="imports-list">
-          <p class="hint">Chargement…</p>
-        </div>
-      </section>
-    </div>
-  </aside>
-  <div id="import-backdrop" class="backdrop hidden" data-close-import></div>
-
   <!-- ============= IMPORT DETAIL MODAL ============= -->
   <div id="import-detail-modal" class="modal hidden">
     <div class="modal-backdrop" data-close-detail></div>
@@ -472,6 +468,6 @@
   <!-- ============= TOAST CONTAINER ============= -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="admin.js?v=12"></script>
+  <script src="admin.js?v=13"></script>
 </body>
 </html>
