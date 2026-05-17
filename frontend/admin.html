@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LeParvis · Admin</title>
-  <link rel="stylesheet" href="admin.css?v=15" />
+  <link rel="stylesheet" href="admin.css?v=16" />
 </head>
 <body>
 
@@ -327,32 +327,18 @@
 
             <article class="import-card">
               <header class="import-card-head">
-                <span class="import-card-icon">📥</span>
-                <div>
-                  <h4>messes.info</h4>
-                  <p class="hint">URL construite depuis une ville ou code postal. Active le rendu JS si besoin.</p>
-                </div>
-              </header>
-              <label class="full">
-                <span>Ville ou code postal</span>
-                <input id="import-mi-location" type="text" placeholder="Paris, Versailles, 75004…" />
-              </label>
-              <div class="row import-actions">
-                <button type="button" id="btn-import-mi-preview" class="btn btn-secondary btn-sm">🔍 Diagnostiquer</button>
-                <button type="button" id="btn-import-mi" class="btn btn-primary btn-sm">📥 Importer</button>
-              </div>
-            </article>
-
-            <article class="import-card">
-              <header class="import-card-head">
                 <span class="import-card-icon">🌐</span>
                 <div>
-                  <h4>Site de paroisse</h4>
-                  <p class="hint">Récupère les horaires depuis l'URL de la page d'une paroisse.</p>
+                  <h4>Site de paroisse ou fiche messes.info</h4>
+                  <p class="hint">
+                    Récupère les horaires depuis l'URL d'une paroisse. Pour messes.info,
+                    utilise la <strong>fiche d'une paroisse</strong> (pas la page de recherche
+                    <code>/horaires/&lt;ville&gt;</code>, qui agrège plusieurs lieux).
+                  </p>
                 </div>
               </header>
               <label class="full">
-                <span>URL de la page horaires</span>
+                <span>URL de la page</span>
                 <input id="import-url" type="url" placeholder="https://exemple-paroisse.fr/horaires" />
               </label>
               <label class="checkbox-label">
@@ -589,6 +575,6 @@
   <!-- ============= TOAST CONTAINER ============= -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="admin.js?v=15"></script>
+  <script src="admin.js?v=16"></script>
 </body>
 </html>

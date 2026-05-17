@@ -805,8 +805,12 @@ async function importUrl(force) {
       return;
     }
     if (!res.ok) {
-      setImportReport(JSON.stringify(body, null, 2), `Erreur ${res.status}`);
-      toast(`Erreur ${res.status}`, "error");
+      // FastAPI wraps errors in { detail: ... }. The detail is either
+      // a string or our structured { error, message, hint } payload.
+      const detail = body?.detail ?? body;
+      const msg = (typeof detail === "object" && detail?.message) || (typeof detail === "string" ? detail : null);
+      setImportReport(JSON.stringify(body, null, 2), msg || `Erreur ${res.status}`);
+      toast(msg || `Erreur ${res.status}`, "error", 7000);
       return;
     }
     setImportReport(
@@ -826,34 +830,6 @@ $("#btn-import-url").addEventListener("click", () => importUrl(false));
 $("#btn-import-preview").addEventListener("click", async () => {
   const url = $("#import-url").value.trim();
   if (!url) { toast("Renseigne une URL.", "error"); return; }
-  await previewUrlForImport(url);
-});
-
-// ----- messes.info shortcut --------------------------------------------
-
-function buildMessesInfoUrl() {
-  const loc = $("#import-mi-location").value.trim();
-  if (!loc) {
-    toast("Renseigne une ville ou un code postal.", "error");
-    return null;
-  }
-  // messes.info uses /horaires/<slug> — encode for spaces / accents.
-  const slug = encodeURIComponent(loc);
-  return `https://messes.info/horaires/${slug}`;
-}
-
-$("#btn-import-mi").addEventListener("click", () => {
-  const url = buildMessesInfoUrl();
-  if (!url) return;
-  $("#import-url").value = url;        // for visibility / re-diagnosis
-  toast(`Cible : ${url}`, "info", 2500);
-  importUrl(false);
-});
-
-$("#btn-import-mi-preview").addEventListener("click", async () => {
-  const url = buildMessesInfoUrl();
-  if (!url) return;
-  $("#import-url").value = url;
   await previewUrlForImport(url);
 });
 

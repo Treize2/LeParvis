@@ -99,6 +99,11 @@ async def ingest_url(request: IngestUrlRequest, db: Session = Depends(get_db)):
         except PermissionError as exc:
             raised["robots"] = exc
             pipeline.errors.append(f"robots_disallowed: {exc}")
+        except ValueError as exc:
+            # Scraper-side validation (e.g. messes.info list URL refused).
+            # Record the error in the run + surface as 400 below.
+            raised["bad_url"] = exc
+            pipeline.errors.append(str(exc))
         except Exception as exc:  # noqa: BLE001
             pipeline.errors.append(str(exc))
         return pipeline
@@ -122,6 +127,16 @@ async def ingest_url(request: IngestUrlRequest, db: Session = Depends(get_db)):
                 "url": request.url,
                 "message": str(raised["robots"]),
                 "hint": "Renvoie la requête avec `force=true` si tu acceptes la responsabilité.",
+            },
+        )
+
+    if "bad_url" in raised:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "unsupported_url",
+                "url": request.url,
+                "message": str(raised["bad_url"]),
             },
         )
 

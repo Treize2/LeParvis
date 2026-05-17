@@ -50,6 +50,16 @@ class RenderedHtmlScraper(Scraper):
         "(KHTML, like Gecko) Version/16.5 Safari/605.1.15"
     )
 
+    # URL patterns that we refuse to ingest as a single church because
+    # they're list/search pages aggregating many parishes. Importing them
+    # would yield one fake "church" with the page title (e.g. "Recherche
+    # d'horaires - 78150 MessesInfo") and a soup of unrelated celebration
+    # times scraped from snippets.
+    KNOWN_LIST_URL_PATTERNS = {
+        "messes.info": ("/horaires/",),
+        "www.messes.info": ("/horaires/",),
+    }
+
     async def fetch(
         self,
         url: str,
@@ -59,10 +69,12 @@ class RenderedHtmlScraper(Scraper):
         if not force and not Scraper.can_fetch(url):
             raise PermissionError(f"robots.txt forbids fetching {url}")
 
+        self._reject_known_list_urls(url)
+
         html, title = await self._render(url)
 
         church = ScrapedChurch(
-            name=title or urlparse(url).hostname or "Site paroissial",
+            name=self._extract_church_name(html, title, url),
             type=hint_type or "parish",
             website=url,
             source=self.name,
@@ -97,6 +109,43 @@ class RenderedHtmlScraper(Scraper):
                 )
 
         return [ScrapeResult(church=church, celebrations=celebrations)]
+
+    @classmethod
+    def _reject_known_list_urls(cls, url: str) -> None:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        prefixes = cls.KNOWN_LIST_URL_PATTERNS.get(host)
+        if not prefixes:
+            return
+        path = parsed.path or ""
+        if any(path.startswith(p) for p in prefixes):
+            raise ValueError(
+                "Cette URL messes.info est une page de résultats qui liste "
+                "plusieurs paroisses, pas une fiche unique. Va sur la fiche "
+                "d'une paroisse spécifique (clique sur son nom dans la liste) "
+                "et copie son URL ici. Pour découvrir les paroisses d'une "
+                "zone, utilise plutôt l'import OpenStreetMap."
+            )
+
+    @staticmethod
+    def _extract_church_name(html: str, page_title: str, url: str) -> str:
+        """Prefer the first h1 over <title> — messes.info titles are
+        often 'Recherche d'horaires - 78150 | MessesInfo', useless as a
+        parish identity. Cleans known suffixes when we do fall back."""
+        soup = BeautifulSoup(html, "lxml")
+        h1 = soup.find("h1")
+        if h1:
+            name = h1.get_text(" ", strip=True)
+            if name:
+                return name
+        if page_title:
+            for suffix in (" | MessesInfo", " - MessesInfo", " - Messes.info",
+                           " | Messes.info"):
+                if page_title.endswith(suffix):
+                    page_title = page_title[: -len(suffix)].strip()
+                    break
+            return page_title
+        return urlparse(url).hostname or "Site paroissial"
 
     async def render(self, url: str) -> tuple[str, str]:
         """Public alias used by the preview endpoint."""
