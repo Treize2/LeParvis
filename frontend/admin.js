@@ -696,6 +696,7 @@ function switchView(name) {
   $$(".view").forEach((v) =>
     v.classList.toggle("hidden", v.id !== `view-${name}`));
   if (name === "imports") loadImports();
+  if (name === "stats") loadStats();
   if (name === "scheduler") openSchedulerView();
   else stopSchedulerAutoRefresh();
 }
@@ -1323,6 +1324,279 @@ $("#sched-logs-auto").addEventListener("change", (e) => {
   if (e.target.checked) startSchedulerAutoRefresh();
   else stopSchedulerAutoRefresh();
 });
+
+// =========================================================================
+// Stats view — dashboard with KPIs + Chart.js charts
+// =========================================================================
+
+const _chartInstances = {};
+
+// Earthy palette that matches the admin design system.
+const CHART_COLORS = [
+  "#8b1a1a", "#b78e3a", "#5a4a3c", "#2d6a4f", "#b13a3a",
+  "#c89a2a", "#7b6147", "#3f8a6a", "#d4a44a", "#a05c5c",
+  "#6b5a4b", "#88a87a",
+];
+const CHART_RED = "#8b1a1a";
+const CHART_GREEN = "#2d6a4f";
+const CHART_GOLD = "#b78e3a";
+
+const DAY_NAMES = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim", "Tous"];
+const KIND_SHORT = {
+  parish: "Paroisse", cathedral: "Cathédrale", basilica: "Basilique",
+  monastery: "Monastère", abbey: "Abbaye", priory: "Prieuré",
+  shrine: "Sanctuaire", chapel: "Chapelle", oratory: "Oratoire",
+  seminary: "Séminaire",
+};
+const CELEB_SHORT = {
+  mass: "Messe", lauds: "Laudes", vespers: "Vêpres", compline: "Complies",
+  adoration: "Adoration", confession: "Confession", chaplet: "Chapelet",
+  vigil: "Vigile", other: "Autre",
+};
+
+function destroyCharts() {
+  for (const k of Object.keys(_chartInstances)) {
+    _chartInstances[k].destroy();
+    delete _chartInstances[k];
+  }
+}
+
+async function loadStats() {
+  // If Chart.js hasn't finished loading yet (deferred from CDN), wait
+  // briefly. Falling through with no Chart still renders KPIs.
+  if (typeof Chart === "undefined") {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  destroyCharts();
+  try {
+    const stats = await api("/api/admin/stats");
+    renderKpis(stats.overview, stats.freshness);
+    renderCoverage(stats.overview);
+    if (typeof Chart === "undefined") {
+      toast("Chart.js indisponible — KPIs uniquement", "info", 4000);
+      return;
+    }
+    renderCharts(stats);
+  } catch (err) {
+    toast("Stats: " + err.message, "error");
+  }
+}
+
+$("#btn-stats-reload")?.addEventListener("click", loadStats);
+
+function renderKpis(o, fresh) {
+  $("#kpi-churches").textContent = o.total_churches.toLocaleString("fr-FR");
+  $("#kpi-churches-sub").textContent = `${o.with_coords} avec coordonnées · ${o.coverage_coords_pct}%`;
+  $("#kpi-celebrations").textContent = o.total_celebrations.toLocaleString("fr-FR");
+  $("#kpi-celebrations-sub").textContent = `${o.celebrations_per_church} / lieu en moyenne`;
+  $("#kpi-coverage").textContent = `${o.coverage_celebrations_pct}%`;
+  $("#kpi-coverage-sub").textContent = `${o.churches_with_celebrations} / ${o.total_churches} lieux ont ≥ 1 horaire`;
+  $("#kpi-imports").textContent = o.imports_last_7d;
+  $("#kpi-imports-sub").textContent = `${o.imports_total} au total`;
+  $("#kpi-suggestions").textContent = o.suggestions_pending;
+  $("#kpi-suggestions-sub").textContent = o.suggestions_pending
+    ? "à traiter" : "rien à faire";
+  $("#kpi-fresh").textContent = fresh ? fresh.fresh_7d : "—";
+  $("#kpi-fresh-sub").textContent = fresh
+    ? `${fresh.stale_30d} > 30 j · ${fresh.never_seen} jamais vus`
+    : "";
+}
+
+function renderCoverage(o) {
+  const rows = [
+    { label: "Avec célébrations", pct: o.coverage_celebrations_pct, n: o.churches_with_celebrations },
+    { label: "Avec coordonnées", pct: o.coverage_coords_pct, n: o.with_coords },
+    { label: "Avec site web",    pct: o.coverage_website_pct, n: o.with_website },
+    { label: "Avec téléphone",   pct: o.coverage_phone_pct, n: o.with_phone },
+    { label: "Avec email",       pct: o.coverage_email_pct, n: o.with_email },
+  ];
+  $("#coverage-bars").innerHTML = rows.map((r) => `
+    <div class="coverage-row">
+      <div class="label">${r.label}</div>
+      <div class="bar"><div class="bar-fill" style="width:${r.pct}%"></div></div>
+      <div class="pct">${r.pct}% <span class="muted">(${r.n})</span></div>
+    </div>`).join("");
+}
+
+function makeChart(id, config) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  _chartInstances[id] = new Chart(el.getContext("2d"), config);
+}
+
+function renderCharts(s) {
+  const o = s.overview;
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  Chart.defaults.color = "#5a4a3c";
+  Chart.defaults.borderColor = "#e6dfd4";
+
+  // Doughnut: churches by type
+  makeChart("chart-churches-type", {
+    type: "doughnut",
+    data: {
+      labels: s.churches_by_type.map((b) => KIND_SHORT[b.key] || b.key || "—"),
+      datasets: [{
+        data: s.churches_by_type.map((b) => b.count),
+        backgroundColor: CHART_COLORS,
+        borderWidth: 1,
+      }],
+    },
+    options: doughnutOpts(),
+  });
+
+  // Doughnut: celebrations by type
+  makeChart("chart-celebs-type", {
+    type: "doughnut",
+    data: {
+      labels: s.celebrations_by_type.map((b) => CELEB_SHORT[b.key] || b.key || "—"),
+      datasets: [{
+        data: s.celebrations_by_type.map((b) => b.count),
+        backgroundColor: CHART_COLORS,
+        borderWidth: 1,
+      }],
+    },
+    options: doughnutOpts(),
+  });
+
+  // Bar: celebrations by day of week
+  {
+    const items = s.celebrations_by_day;
+    const sundayIdx = items.findIndex((b) => b.key === 6);
+    const anyIdx = items.findIndex((b) => b.key === "any");
+    makeChart("chart-celebs-day", {
+      type: "bar",
+      data: {
+        labels: items.map((b) => typeof b.key === "number" ? DAY_NAMES[b.key] : "Tous"),
+        datasets: [{
+          label: "Célébrations",
+          data: items.map((b) => b.count),
+          backgroundColor: items.map((_, i) =>
+            i === sundayIdx ? CHART_RED : (i === anyIdx ? CHART_GOLD : CHART_COLORS[i % CHART_COLORS.length])),
+        }],
+      },
+      options: barOpts(),
+    });
+  }
+
+  // Bar: celebrations by hour
+  makeChart("chart-celebs-hour", {
+    type: "bar",
+    data: {
+      labels: s.celebrations_by_hour.map((b) => `${String(b.key).padStart(2, "0")}h`),
+      datasets: [{
+        label: "Célébrations",
+        data: s.celebrations_by_hour.map((b) => b.count),
+        backgroundColor: CHART_RED,
+      }],
+    },
+    options: barOpts(),
+  });
+
+  // Horizontal bar: top dioceses
+  makeChart("chart-dioceses", horizontalBar(s.top_dioceses));
+
+  // Horizontal bar: top cities
+  makeChart("chart-cities", horizontalBar(s.top_cities));
+
+  // Line: imports timeseries
+  makeChart("chart-imports-ts", {
+    type: "bar",
+    data: {
+      labels: s.imports_timeseries.map((b) => b.date.slice(5)),  // MM-DD
+      datasets: [
+        {
+          label: "Succès",
+          data: s.imports_timeseries.map((b) => b.success),
+          backgroundColor: CHART_GREEN,
+          stack: "runs",
+        },
+        {
+          label: "Erreurs",
+          data: s.imports_timeseries.map((b) => b.errors),
+          backgroundColor: CHART_RED,
+          stack: "runs",
+        },
+        {
+          label: "Autres (partiel / en cours)",
+          data: s.imports_timeseries.map((b) => Math.max(0, b.runs - b.success - b.errors)),
+          backgroundColor: CHART_GOLD,
+          stack: "runs",
+        },
+      ],
+    },
+    options: { ...barOpts(), scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } },
+  });
+
+  // Doughnut: imports by status
+  makeChart("chart-imports-status", {
+    type: "doughnut",
+    data: {
+      labels: s.imports_by_status.map((b) => b.key || "—"),
+      datasets: [{
+        data: s.imports_by_status.map((b) => b.count),
+        backgroundColor: s.imports_by_status.map((b) => ({
+          success: CHART_GREEN, error: CHART_RED, partial: CHART_GOLD, pending: "#888",
+        }[b.key] || CHART_COLORS[0])),
+        borderWidth: 1,
+      }],
+    },
+    options: doughnutOpts(),
+  });
+
+  // Doughnut: sources
+  makeChart("chart-sources", {
+    type: "doughnut",
+    data: {
+      labels: s.churches_by_source.map((b) => b.key || "—"),
+      datasets: [{
+        data: s.churches_by_source.map((b) => b.count),
+        backgroundColor: CHART_COLORS,
+        borderWidth: 1,
+      }],
+    },
+    options: doughnutOpts(),
+  });
+}
+
+function doughnutOpts() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: "right", labels: { boxWidth: 12, font: { size: 11 } } },
+    },
+  };
+}
+function barOpts() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, ticks: { precision: 0 } },
+    },
+  };
+}
+function horizontalBar(items) {
+  return {
+    type: "bar",
+    data: {
+      labels: items.map((b) => b.key || "—"),
+      datasets: [{
+        label: "Lieux",
+        data: items.map((b) => b.count),
+        backgroundColor: CHART_GOLD,
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+    },
+  };
+}
 
 // =========================================================================
 // Boot

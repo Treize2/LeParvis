@@ -4,7 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LeParvis · Admin</title>
-  <link rel="stylesheet" href="admin.css?v=16" />
+  <link rel="stylesheet" href="admin.css?v=17" />
+  <!-- Chart.js for the statistics dashboard. Loaded from jsDelivr; if
+       the CDN is unreachable the stats view degrades gracefully (we
+       check for `window.Chart` before rendering). -->
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"
+          crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -44,6 +49,9 @@
       <nav class="admin-nav" role="tablist">
         <button type="button" class="admin-nav-item active" data-view="churches">
           📋 <span>Lieux</span>
+        </button>
+        <button type="button" class="admin-nav-item" data-view="stats">
+          📊 <span>Statistiques</span>
         </button>
         <button type="button" class="admin-nav-item" data-view="imports">
           📥 <span>Imports</span>
@@ -276,6 +284,115 @@
     </div>
     </div>
     <!-- /view-churches -->
+
+    <!-- ============= VIEW: STATS ============= -->
+    <div id="view-stats" class="view hidden">
+      <div class="page">
+        <header class="page-header">
+          <div>
+            <h2>📊 Statistiques</h2>
+            <p class="hint">Vue d'ensemble du catalogue, des horaires et de l'activité d'import.</p>
+          </div>
+          <div class="page-actions">
+            <button type="button" id="btn-stats-reload" class="btn btn-ghost btn-sm" title="Recharger">↻</button>
+          </div>
+        </header>
+
+        <!-- KPI cards -->
+        <section class="page-section kpi-section">
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-label">Lieux de culte</div>
+              <div class="kpi-value" id="kpi-churches">—</div>
+              <div class="kpi-sub" id="kpi-churches-sub"></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Célébrations</div>
+              <div class="kpi-value" id="kpi-celebrations">—</div>
+              <div class="kpi-sub" id="kpi-celebrations-sub"></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Couverture horaires</div>
+              <div class="kpi-value" id="kpi-coverage">—</div>
+              <div class="kpi-sub" id="kpi-coverage-sub"></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Imports (7 j)</div>
+              <div class="kpi-value" id="kpi-imports">—</div>
+              <div class="kpi-sub" id="kpi-imports-sub"></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Suggestions en attente</div>
+              <div class="kpi-value" id="kpi-suggestions">—</div>
+              <div class="kpi-sub" id="kpi-suggestions-sub"></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Données fraîches</div>
+              <div class="kpi-value" id="kpi-fresh">—</div>
+              <div class="kpi-sub" id="kpi-fresh-sub"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Coverage bars -->
+        <section class="page-section">
+          <div class="section-head">
+            <h3>Complétude des fiches</h3>
+          </div>
+          <p class="hint section-hint">Part des lieux ayant chaque champ renseigné.</p>
+          <div id="coverage-bars" class="coverage-bars"></div>
+        </section>
+
+        <!-- Distributions -->
+        <div class="chart-grid">
+          <section class="page-section chart-card">
+            <div class="section-head"><h3>Par type de lieu</h3></div>
+            <div class="chart-wrap"><canvas id="chart-churches-type"></canvas></div>
+          </section>
+
+          <section class="page-section chart-card">
+            <div class="section-head"><h3>Par type de célébration</h3></div>
+            <div class="chart-wrap"><canvas id="chart-celebs-type"></canvas></div>
+          </section>
+
+          <section class="page-section chart-card">
+            <div class="section-head"><h3>Par jour de la semaine</h3></div>
+            <div class="chart-wrap"><canvas id="chart-celebs-day"></canvas></div>
+          </section>
+
+          <section class="page-section chart-card">
+            <div class="section-head"><h3>Par heure de la journée</h3></div>
+            <div class="chart-wrap"><canvas id="chart-celebs-hour"></canvas></div>
+          </section>
+
+          <section class="page-section chart-card chart-card-wide">
+            <div class="section-head"><h3>Top diocèses</h3></div>
+            <div class="chart-wrap"><canvas id="chart-dioceses"></canvas></div>
+          </section>
+
+          <section class="page-section chart-card chart-card-wide">
+            <div class="section-head"><h3>Top villes</h3></div>
+            <div class="chart-wrap"><canvas id="chart-cities"></canvas></div>
+          </section>
+
+          <section class="page-section chart-card chart-card-wide">
+            <div class="section-head"><h3>Imports — 30 derniers jours</h3></div>
+            <div class="chart-wrap"><canvas id="chart-imports-ts"></canvas></div>
+          </section>
+
+          <section class="page-section chart-card">
+            <div class="section-head"><h3>Statut des imports</h3></div>
+            <div class="chart-wrap"><canvas id="chart-imports-status"></canvas></div>
+          </section>
+
+          <section class="page-section chart-card">
+            <div class="section-head"><h3>Sources des fiches</h3></div>
+            <div class="chart-wrap"><canvas id="chart-sources"></canvas></div>
+          </section>
+        </div>
+      </div>
+    </div>
+    <!-- /view-stats -->
 
     <!-- ============= VIEW: IMPORTS ============= -->
     <div id="view-imports" class="view hidden">
@@ -575,6 +692,6 @@
   <!-- ============= TOAST CONTAINER ============= -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="admin.js?v=16"></script>
+  <script src="admin.js?v=17"></script>
 </body>
 </html>

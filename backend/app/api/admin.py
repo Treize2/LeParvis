@@ -28,6 +28,7 @@ from ..scrapers import IngestionPipeline
 from ..scrapers.paroisse_html import ParoisseHtmlScraper
 from ..services.imports import cascade_delete_run, track_import
 from ..services.refresh import refresh_all
+from ..services.stats import compute_stats
 
 router = APIRouter(
     prefix="/api/admin",
@@ -449,3 +450,16 @@ def scheduler_reschedule(payload: SchedulerUpdate):
 def scheduler_logs(limit: int = 200, level: str | None = None):
     from ..scheduler import get_logs
     return get_logs(limit=limit, level=level)
+
+
+# ---- Stats ----------------------------------------------------------------
+
+
+@router.get("/stats")
+def admin_stats(db: Session = Depends(get_db)):
+    """Aggregated dashboard payload for the admin stats view.
+
+    Returns coverage / freshness KPIs plus every distribution the dashboard
+    needs (by type, day, hour, source, diocese, status, etc.). All counts
+    are recomputed at request time — cheap enough at our scale."""
+    return compute_stats(db)
